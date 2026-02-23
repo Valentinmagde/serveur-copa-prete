@@ -1,0 +1,83 @@
+import { Module } from '@nestjs/common';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { ThrottlerModule } from '@nestjs/throttler';
+import { RedisModule } from 'nestjs-redis';
+
+// Configuration
+import appConfig from './config/app.config';
+import databaseConfig from './config/database.config';
+import redisConfig from './config/redis.config';
+import awsConfig from './config/aws.config';
+
+// Modules
+import { AuthModule } from './modules/auth/auth.module';
+import { UsersModule } from './modules/users/users.module';
+import { BeneficiariesModule } from './modules/beneficiaries/beneficiaries.module';
+import { CompaniesModule } from './modules/companies/companies.module';
+import { BusinessPlansModule } from './modules/business-plans/business-plans.module';
+import { EvaluationsModule } from './modules/evaluations/evaluations.module';
+import { TrainingModule } from './modules/training/training.module';
+import { SubventionsModule } from './modules/subventions/subventions.module';
+import { ComplaintsModule } from './modules/complaints/complaints.module';
+import { MonitoringModule } from './modules/monitoring/monitoring.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
+import { DocumentsModule } from './modules/documents/documents.module';
+import { ReferenceModule } from './modules/reference/reference.module';
+import { AdminModule } from './modules/admin/admin.module';
+
+@Module({
+  imports: [
+    // Configuration
+    ConfigModule.forRoot({
+      isGlobal: true,
+      load: [appConfig, databaseConfig, redisConfig, awsConfig],
+    }),
+
+    // Database
+    TypeOrmModule.forRootAsync({
+      imports: [ConfigModule],
+      useFactory: (configService: ConfigService) => ({
+        ...configService.get('database'),
+        autoLoadEntities: true,
+      }),
+      inject: [ConfigService],
+    }),
+
+    // Rate Limiting - Fixed configuration
+    ThrottlerModule.forRoot({
+      throttlers: [
+        {
+          ttl: 60,
+          limit: 100,
+        },
+      ],
+    }),
+
+    // Redis Cache
+    // RedisModule.forRootAsync({
+    //   imports: [ConfigModule],
+    //   useFactory: (configService: ConfigService) => ({
+    //     ...configService.get('redis'),
+    //   }),
+    //   inject: [ConfigService],
+    // }),
+
+    // Application Modules
+    AuthModule,
+    UsersModule,
+    BeneficiariesModule,
+    CompaniesModule,
+    BusinessPlansModule,
+    EvaluationsModule,
+    TrainingModule,
+    SubventionsModule,
+    ComplaintsModule,
+    MonitoringModule,
+    NotificationsModule,
+    DocumentsModule,
+    ReferenceModule,
+    AdminModule,
+  ],
+})
+export class AppModule {}
