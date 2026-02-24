@@ -260,8 +260,34 @@ export class NotificationsController {
       required: ['to'],
     },
   })
-  async testEmail(@Body() data: { to: string; subject?: string, message?: string }) {
+  async testEmail(
+    @Body() data: { to: string; subject?: string; message?: string },
+  ) {
     return this.notificationsService.testEmail(data);
+  }
+
+  @Public()
+  @Post('test/brevo')
+  @ApiOperation({ summary: "Tester l'envoi d'email via Brevo" })
+   @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        to: { type: 'string', example: 'user@example.com' },
+        subject: { type: 'string', example: 'Test Email', nullable: true },
+        message: {
+          type: 'string',
+          example: 'Ceci est un email de test',
+          nullable: true,
+        },
+      },
+      required: ['to'],
+    },
+  })
+  async testBrevo(
+    @Body() data: { to: string; subject?: string; message?: string },
+  ) {
+    return this.notificationsService.testBrevo(data);
   }
 
   @Get('test/connection')

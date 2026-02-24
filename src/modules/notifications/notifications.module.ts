@@ -5,11 +5,21 @@ import { NotificationsService } from './notifications.service';
 import { TwilioService } from './twilio.service';
 import { UsersModule } from '../users/users.module';
 import { NotificationsController } from './notifications.controller';
+import { SesEmailProvider } from './providers/ses-email.provider';
+import { BrevoProvider } from './providers/brevo-provider';
+import { ConfigModule } from '@nestjs/config';
+import { EmailTemplatesService } from './templates/email-templates.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Notification]), UsersModule],
+  imports: [TypeOrmModule.forFeature([Notification]), UsersModule, ConfigModule],
   controllers: [NotificationsController],
-  providers: [NotificationsService, TwilioService],
-  exports: [NotificationsService],
+  providers: [
+    NotificationsService,
+    TwilioService,
+    SesEmailProvider,
+    BrevoProvider,
+    EmailTemplatesService,
+  ],
+  exports: [NotificationsService, TwilioService, EmailTemplatesService],
 })
 export class NotificationsModule {}

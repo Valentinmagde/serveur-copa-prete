@@ -21,6 +21,12 @@ import {
   PaginatedResult,
   PaginationUtil,
 } from '@/common/utils/pagination.util';
+import {
+  EmailTemplatesService,
+  SmsTemplateType,
+} from './templates/email-templates.service';
+import { ConfigService } from '@nestjs/config';
+import { activitiesUrl } from 'twilio/lib/jwt/taskrouter/util';
 
 @Injectable()
 export class NotificationsService {
@@ -31,6 +37,8 @@ export class NotificationsService {
     private notificationRepository: Repository<Notification>,
     private twilioService: TwilioService,
     private usersService: UsersService,
+    private emailTemplates: EmailTemplatesService,
+    private configService: ConfigService,
   ) {}
 
   // ==================== CRUD PRINCIPAL ====================
@@ -90,15 +98,22 @@ export class NotificationsService {
 
       switch (dto.channel) {
         case NotificationChannel.EMAIL:
+          // Utilisation de SES via TwilioService
           deliveryResult = await this.twilioService.sendEmail({
             to: user.email,
             subject: dto.title,
             html: dto.content,
             templateId: this.getTemplateId(dto.template),
-            templateData: { ...dto.data, firstName: user.firstName },
+            templateData: {
+              ...dto.data,
+              firstName: user.firstName,
+              userName: user.firstName,
+              year: new Date().getFullYear(),
+            },
           });
           break;
 
+        // Les autres cas restent identiques
         case NotificationChannel.SMS:
           deliveryResult = await this.twilioService.sendSms(
             user.phoneNumber,
@@ -120,15 +135,11 @@ export class NotificationsService {
           break;
 
         case NotificationChannel.IN_APP:
-          // Pas d'envoi externe, juste en base
           deliveryResult = { status: 'in_app' };
           break;
-
-        default:
-          this.logger.warn(`Canal non supporté: ${dto.channel}`);
       }
 
-      // Mettre à jour le statut
+      // Mise à jour du statut (inchangé)
       notification.isSent = true;
       notification.sentAt = new Date();
       notification.context = {
@@ -149,6 +160,126 @@ export class NotificationsService {
       await this.notificationRepository.save(notification);
       throw error;
     }
+  }
+
+  /**
+   * Envoie un email de bienvenue après inscription
+   */
+  async sendWelcomeEmail(options: {
+    to: string;
+    template?: string;
+    data: {
+      firstName: string;
+      loginUrl: string;
+      activationLink: string;
+      verificationToken: string;
+    };
+  }): Promise<any> {
+    try {
+      this.logger.log(`Préparation email de bienvenue pour ${options.to}`);
+
+      // Récupérer le template d'email
+      const template = this.emailTemplates.getConfirmationInscription({
+        firstName: options.data.firstName,
+        activationLink: options.data.activationLink,
+      });
+
+      // Envoyer l'email via le provider configuré (SES ou Brevo)
+      const result = await this.twilioService.sendEmail({
+        to: options.to,
+        subject: template.subject,
+        html: template.html,
+        text: template.text,
+      });
+
+      // Sauvegarder la notification en base de données
+      const user = await this.usersService.findByEmail(options.to);
+
+      if (user) {
+        const notification = this.notificationRepository.create({
+          recipientUserId: user.id,
+          channel: NotificationChannel.EMAIL,
+          notificationType: NotificationType.CONFIRMATION,
+          title: template.subject,
+          content: template.text,
+          context: {
+            verificationToken: options.data.verificationToken,
+            emailType: 'welcome',
+            messageId: result.messageId,
+          },
+          isSent: true,
+          sentAt: new Date(),
+        });
+
+        await this.notificationRepository.save(notification);
+      }
+
+      this.logger.log(`Email de bienvenue envoyé avec succès à ${options.to}`);
+
+      return {
+        success: true,
+        messageId: result.messageId,
+        provider: result.provider || 'unknown',
+      };
+    } catch (error) {
+      this.logger.error(`Erreur envoi email bienvenue à ${options.to}:`, error);
+
+      // En cas d'échec, on peut quand même sauvegarder une notification en échec
+      try {
+        const user = await this.usersService.findByEmail(options.to);
+        if (user) {
+          const notification = this.notificationRepository.create({
+            recipientUserId: user.id,
+            channel: NotificationChannel.EMAIL,
+            notificationType: NotificationType.CONFIRMATION,
+            title: 'Bienvenue sur COPA',
+            content: 'Email de bienvenue (en attente)',
+            context: {
+              error: error.message,
+              emailType: 'welcome',
+            },
+            isSent: false,
+          });
+          await this.notificationRepository.save(notification);
+        }
+      } catch (saveError) {
+        this.logger.error(
+          'Impossible de sauvegarder la notification en échec:',
+          saveError,
+        );
+      }
+
+      // Ne pas bloquer l'inscription si l'email échoue
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  }
+
+  async sendPlanSoumis(user: any, plan: any) {
+    const template = this.emailTemplates.getPlanAffairesSoumis({
+      firstName: user.firstName,
+      dossierNumero: plan.numero,
+      secteur: plan.secteur,
+      montantDemande: this.emailTemplates.formatMontant(plan.montant),
+      dateResultats: this.emailTemplates.formatDate(plan.dateResultats),
+    });
+
+    return this.twilioService.sendEmail({
+      to: user.email,
+      subject: template.subject,
+      html: template.html,
+      text: template.text,
+    });
+  }
+
+  async sendLaureatSms(user: any, subvention: any) {
+    const sms = this.emailTemplates.getSms(SmsTemplateType.LAUREAT, {
+      montantSubvention: this.emailTemplates.formatMontant(subvention.montant),
+    });
+
+    return this.twilioService.sendSms(user.phoneNumber, sms);
   }
 
   /**
@@ -652,6 +783,30 @@ export class NotificationsService {
     });
   }
 
+  async testBrevo(data: {
+    to: string;
+    subject?: string;
+    message?: string;
+  }): Promise<any> {
+    // Test simple
+    const result = await this.twilioService.sendEmail({
+      to: data.to,
+      subject: data.subject || 'Test Brevo',
+      html: data.message || '<h1>Test</h1><p>Email via Brevo</p>',
+    });
+
+    // Vérification de la configuration
+    const isValid = await this.twilioService.validateBrevoConfig();
+    const templates = await this.twilioService.listBrevoTemplates();
+
+    return {
+      emailSent: result,
+      configValid: isValid,
+      availableTemplates: templates,
+      activeProvider: this.twilioService['activeEmailProvider'],
+    };
+  }
+
   /**
    * Test des connexions
    */
@@ -677,5 +832,11 @@ export class NotificationsService {
     results.sendgrid = true;
 
     return results;
+  }
+
+  private generateVerificationToken(): string {
+    // Génère un token aléatoire de 32 caractères hexadécimaux
+    const crypto = require('crypto');
+    return crypto.randomBytes(32).toString('hex');
   }
 }

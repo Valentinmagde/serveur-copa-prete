@@ -6,6 +6,7 @@ import {
   Inject,
   InternalServerErrorException,
   Logger,
+  NotFoundException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -23,7 +24,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { User } from '../users/entities/user.entity';
 import { Company } from '../companies/entities/company.entity';
 import { Beneficiary } from '../beneficiaries/entities/beneficiary.entity';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, LessThan, Repository } from 'typeorm';
 import { Address } from '../reference/entities/address.entity';
 import { Status } from '../reference/entities/status.entity';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -69,7 +70,7 @@ export class AuthService {
         userAgent,
         'User not found',
       );
-      throw new UnauthorizedException('Invalid credentials');
+      throw new UnauthorizedException('Nom d\'utilisateur ou mot de passe incorrect');
     }
 
     if (user.isBlocked) {
@@ -94,6 +95,18 @@ export class AuthService {
         'Account is inactive',
       );
       throw new UnauthorizedException('Account is inactive');
+    }
+
+    if (!user.isVerified) {
+      await this.authRepository.logLoginAttempt(
+        user.id,
+        email,
+        false,
+        ipAddress,
+        userAgent,
+        'Account is not verified',
+      );
+      throw new UnauthorizedException('Compte non vérifié. Veuillez vérifier votre email pour activer votre compte');
     }
 
     // Vérifier le nombre de tentatives échouées récentes
@@ -206,7 +219,7 @@ export class AuthService {
       const userRepo = queryRunner.manager.getRepository(User);
       const genderRepo = queryRunner.manager.getRepository(Gender);
       const gender = await genderRepo.findOne({
-        where: { code: step1.gender},
+        where: { code: step1.gender },
       });
 
       const user = userRepo.create({
@@ -300,20 +313,21 @@ export class AuthService {
       // Send notifications
       try {
         // Email confirmation
-        // await this.notificationsService.sendEmail({
+        // await this.notificationsService.sendWelcomeEmail({
         //   to: savedUser.email,
         //   template: 'welcome',
         //   data: {
         //     firstName: savedUser.firstName,
-        //     loginUrl: `${this.configService.get('app.frontendUrl')}/login`,
+        //     loginUrl: `${this.configService.get('APP_FRONTEND_URL')}/login`,
         //   },
         // });
+        this.createEmailVerification(savedUser);
 
         // SMS confirmation if phone number is provided
-        // if (savedUser.phoneNumber) {
-        //   await this.notificationsService.sendSMS({
+        //       if (savedUser.phoneNumber) {
+        //   await this.notificationsService.sendSms({
         //     to: savedUser.phoneNumber,
-        //     message: `COPA: Bienvenue ${savedUser.firstName}! Votre inscription est réussie. Votre dossier sera validé sous 48h. Connectez-vous sur copa.prete.gov.bi`,
+        //     message: `COPA: Bienvenue ${savedUser.firstName}! Votre inscription est réussie. Votre dossier sera validé sous 48h. Connectez-vous sur ${this.configService.get('APP_FRONTEND_URL')}`,
         //   });
         // }
 
@@ -361,6 +375,139 @@ export class AuthService {
     } finally {
       await queryRunner.release();
     }
+  }
+
+  /**
+   * Crée un token de vérification et envoie l'email
+   */
+  async createEmailVerification(user: User): Promise<void> {
+    try {
+      // Générer un nouveau token
+      const verificationToken = this.generateVerificationToken();
+      const expiresAt = new Date();
+      expiresAt.setHours(expiresAt.getHours() + 48); // Valable 48h
+
+      // Sauvegarder le token directement dans l'entité User
+      user.verificationToken = verificationToken;
+      user.verificationTokenExpiresAt = expiresAt;
+      await this.userRepo.save(user);
+
+      // Construire le lien d'activation
+      const frontendUrl =
+        this.configService.get('APP_FRONTEND_URL') || 'http://localhost:5173';
+      const activationLink = `${frontendUrl}/verify-email?token=${verificationToken}&email=${encodeURIComponent(user.email)}`;
+
+      // Envoyer l'email via votre service de notifications
+      await this.notificationsService.sendWelcomeEmail({
+        to: user.email,
+        template: 'welcome',
+        data: {
+          firstName: user.firstName,
+          loginUrl: `${frontendUrl}/login`,
+          activationLink,
+          verificationToken,
+        },
+      });
+
+      this.logger.log(`Email de vérification envoyé à ${user.email}`);
+    } catch (error) {
+      this.logger.error(`Erreur création vérification: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Vérifie l'email avec le token
+   */
+  async verifyEmail(email: string, token: string): Promise<boolean> {
+    // Trouver l'utilisateur
+    const user = await this.userRepo.findOne({
+      where: { email: email.toLowerCase() },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Utilisateur non trouvé');
+    }
+
+    // Si déjà vérifié, retourner vrai
+    if (user.isVerified) {
+      return true;
+    }
+
+    // Vérifier si le token correspond
+    if (user.verificationToken !== token) {
+      throw new BadRequestException(
+        'Votre lien de vérification est expiré, veuillez en demander un nouveau.',
+      );
+    }
+
+    // Vérifier si le token a expiré
+    if (
+      !user.verificationTokenExpiresAt ||
+      user.verificationTokenExpiresAt < new Date()
+    ) {
+      throw new BadRequestException('Token de vérification expiré');
+    }
+
+    // Marquer l'utilisateur comme vérifié
+    user.isVerified = true;
+    user.verificationToken = null; // Effacer le token
+    user.verificationTokenExpiresAt = null;
+
+    await this.userRepo.save(user);
+
+    this.logger.log(`Email ${email} vérifié avec succès`);
+
+    return true;
+  }
+
+  /**
+   * Renvoie un email de vérification
+   */
+  async resendVerification(email: string): Promise<void> {
+    const user = await this.userRepo.findOne({
+      where: { email: email.toLowerCase() },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Utilisateur non trouvé');
+    }
+
+    if (user.isVerified) {
+      throw new BadRequestException('Cet email est déjà vérifié');
+    }
+
+    // Créer et envoyer un nouveau token
+    await this.createEmailVerification(user);
+  }
+
+  /**
+   * Nettoie les tokens expirés (cron job)
+   */
+  async cleanExpiredVerificationTokens(): Promise<number> {
+    const result = await this.userRepo.update(
+      {
+        verificationTokenExpiresAt: LessThan(new Date()),
+      },
+      {
+        verificationToken: null,
+        verificationTokenExpiresAt: null,
+      },
+    );
+
+    if (result.affected && result.affected > 0) {
+      this.logger.log(`${result.affected} tokens expirés nettoyés`);
+    }
+
+    return result.affected || 0;
+  }
+
+  /**
+   * Génère un token de vérification aléatoire
+   */
+  private generateVerificationToken(): string {
+    const crypto = require('crypto');
+    return crypto.randomBytes(32).toString('hex');
   }
 
   async createRefreshToken(userId: number): Promise<string> {

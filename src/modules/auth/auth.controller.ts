@@ -30,6 +30,8 @@ import {
   ForgotPasswordDto,
   ResetPasswordDto,
 } from './dto';
+import { Throttle } from '@nestjs/throttler';
+import { ResendVerificationDto, VerifyEmailDto } from './dto/verify-email.dto';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -119,5 +121,42 @@ export class AuthController {
   @ApiOperation({ summary: 'Get current user profile' })
   async getProfile(@CurrentUser() user) {
     return this.authService.getProfile(user.id);
+  }
+
+  @Public()
+  @Post('verify-email')
+  @HttpCode(HttpStatus.OK)
+  // @Throttle(5, 60) // 5 tentatives par minute
+  @ApiOperation({ summary: "Vérifier l'email avec un token" })
+  @ApiResponse({ status: 200, description: 'Email vérifié avec succès' })
+  @ApiResponse({ status: 400, description: 'Token invalide ou expiré' })
+  @ApiResponse({ status: 404, description: 'Utilisateur non trouvé' })
+  async verifyEmail(@Body() verifyEmailDto: VerifyEmailDto) {
+    await this.authService.verifyEmail(
+      verifyEmailDto.email,
+      verifyEmailDto.token,
+    );
+
+    return {
+      success: true,
+      message: 'Email vérifié avec succès',
+    };
+  }
+
+  @Public()
+  @Post('resend-verification')
+  @HttpCode(HttpStatus.OK)
+  // @Throttle(3, 300) // 3 tentatives toutes les 5 minutes
+  @ApiOperation({ summary: "Renvoyer l'email de vérification" })
+  @ApiResponse({ status: 200, description: 'Email renvoyé avec succès' })
+  @ApiResponse({ status: 400, description: 'Email déjà vérifié' })
+  @ApiResponse({ status: 404, description: 'Utilisateur non trouvé' })
+  async resendVerification(@Body() resendDto: ResendVerificationDto) {
+    await this.authService.resendVerification(resendDto.email);
+
+    return {
+      success: true,
+      message: 'Email de vérification renvoyé avec succès',
+    };
   }
 }

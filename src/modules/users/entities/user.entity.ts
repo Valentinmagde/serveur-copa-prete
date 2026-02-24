@@ -89,6 +89,16 @@ export class User {
   @Column({ nullable: true, name: 'reset_token_expires_at' })
   resetTokenExpiresAt: Date;
 
+  @Column({ type: 'varchar', nullable: true, name: 'verification_token' })
+  verificationToken: string | null;
+
+  @Column({
+    type: 'timestamp',
+    nullable: true,
+    name: 'verification_token_expires_at',
+  })
+  verificationTokenExpiresAt: Date | null;
+
   @Column({ type: 'timestamp', nullable: true, name: 'cgu_accepted_at' })
   cguAcceptedAt: Date | null;
 
