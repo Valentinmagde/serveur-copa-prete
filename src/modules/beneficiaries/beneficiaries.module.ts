@@ -6,15 +6,18 @@ import { Beneficiary } from './entities/beneficiary.entity';
 import { UsersModule } from '../users/users.module';
 import { CompaniesModule } from '../companies/companies.module';
 import { Status } from '../reference/entities/status.entity';
+import { User } from '../users/entities/user.entity';
+import { Company } from '../companies/entities/company.entity';
+import { ProfileCompletionService } from './profile-completion.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Beneficiary, Status]),
     UsersModule,
     CompaniesModule,
+    TypeOrmModule.forFeature([User, Beneficiary, Company, Status]),
   ],
   controllers: [BeneficiariesController],
-  providers: [BeneficiariesService],
-  exports: [BeneficiariesService],
+  providers: [BeneficiariesService, ProfileCompletionService],
+  exports: [BeneficiariesService, ProfileCompletionService],
 })
 export class BeneficiariesModule {}

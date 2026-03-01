@@ -113,6 +113,30 @@ export class Beneficiary {
   )
   subventions: Subvention[];
 
+  @Column({
+    name: 'profile_completion_percentage',
+    type: 'decimal',
+    precision: 5,
+    scale: 2,
+    default: 0,
+  })
+  profileCompletionPercentage: number;
+
+  @Column({
+    name: 'profile_completion_step',
+    type: 'varchar',
+    length: 20,
+    nullable: true,
+  })
+  profileCompletionStep: string;
+
+  @Column({
+    name: 'profile_completed_at',
+    type: 'timestamp',
+    nullable: true,
+  })
+  profileCompletedAt: Date;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

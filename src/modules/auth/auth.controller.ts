@@ -32,6 +32,8 @@ import {
 } from './dto';
 import { Throttle } from '@nestjs/throttler';
 import { ResendVerificationDto, VerifyEmailDto } from './dto/verify-email.dto';
+import { RegistrationStep1Dto } from './dto/register-step1.dto';
+import { RegistrationMpmeDto } from './dto/register-mpme.dto';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -63,6 +65,33 @@ export class AuthController {
     @Headers('user-agent') userAgent: string,
   ) {
     return this.authService.register(registerDto, ipAddress, userAgent);
+  }
+
+  @Public()
+  @Post('register-mpme')
+  @ApiOperation({ summary: 'Register a new beneficiary' })
+  @ApiHeader({
+    name: 'x-forwarded-for',
+    description: 'Client IP address',
+    required: false,
+    schema: { default: '127.0.0.1' },
+  })
+  @ApiHeader({
+    name: 'user-agent',
+    description: 'User agent header',
+    required: false,
+    schema: { default: 'Swagger-UI' },
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Beneficiary successfully registered',
+  })
+  async registerMpme(
+    @Body() registerDto: RegistrationMpmeDto,
+    @Headers('x-forwarded-for') ipAddress: string,
+    @Headers('user-agent') userAgent: string,
+  ) {
+    return this.authService.registerMpme(registerDto, ipAddress, userAgent);
   }
 
   @Public()

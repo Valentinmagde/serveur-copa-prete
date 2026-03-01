@@ -129,6 +129,8 @@ async function seed() {
         ('THIRD_PARTY_SHARING', 'Third Party Sharing', 'Consent to share data with partners', false),
         ('COOKIES', 'Cookies Consent', 'Consent for website cookies', true),
         ('TERMS_AND_CONDITIONS', 'Terms and Conditions', 'Acceptance of terms and conditions', true);
+        ('PRIVACY_POLICY', 'Privacy Policy', 'Acceptance of the privacy policy', true);
+        ('CERTIFY_ACCURACY', 'Certification of Accuracy', 'Certification that the provided information is accurate and truthful', true);
       `);
       console.log('Consent types seeded');
     }

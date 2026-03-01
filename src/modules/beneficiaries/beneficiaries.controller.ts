@@ -3,13 +3,13 @@ import {
   Get,
   Post,
   Put,
-  Delete,
   Body,
   Param,
   Query,
   UseGuards,
+  Headers,
 } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth, ApiHeader } from '@nestjs/swagger';
 import { BeneficiariesService } from './beneficiaries.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -38,6 +38,12 @@ export class BeneficiariesController {
     return this.beneficiariesService.findById(+id);
   }
 
+  @Get('user/:userId')
+  // @Roles('SUPER_ADMIN', 'ADMIN', 'COPA_MANAGER')
+  async findByUserId(@Param('userId') userId: string) {
+    return this.beneficiariesService.findByUserId(+userId);
+  }
+
   @Post()
   @Roles('SUPER_ADMIN', 'ADMIN')
   async create(@Body() createDto: CreateBeneficiaryDto) {
@@ -45,12 +51,31 @@ export class BeneficiariesController {
   }
 
   @Put(':id')
-  @Roles('SUPER_ADMIN', 'ADMIN')
+  // @Roles('SUPER_ADMIN', 'ADMIN')
+  @ApiHeader({
+    name: 'x-forwarded-for',
+    description: 'Client IP address',
+    required: false,
+    schema: { default: '127.0.0.1' },
+  })
+  @ApiHeader({
+    name: 'user-agent',
+    description: 'User agent header',
+    required: false,
+    schema: { default: 'Swagger-UI' },
+  })
   async update(
     @Param('id') id: string,
-    @Body() updateDto: UpdateBeneficiaryDto,
+    @Body() updateDto: any,
+    @Headers('x-forwarded-for') ipAddress: string,
+    @Headers('user-agent') userAgent: string,
   ) {
-    return this.beneficiariesService.update(+id, updateDto);
+    return this.beneficiariesService.update(
+      id,
+      updateDto,
+      ipAddress,
+      userAgent,
+    );
   }
 
   @Post(':id/validate')

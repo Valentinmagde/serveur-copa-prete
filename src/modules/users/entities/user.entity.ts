@@ -116,7 +116,7 @@ export class User {
   primaryAddress: Address;
 
   @Column({ name: 'primary_address_id', nullable: true })
-  primaryAddressId: number;
+  primaryAddressId: number | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

@@ -35,6 +35,7 @@ import { ConsentType } from '../reference/entities/consent-type.entity';
 import { Role } from '../reference/entities/role.entity';
 import { UserRole } from '../users/entities/user-role.entity';
 import { Gender } from '../reference/entities/gender.entity';
+import { RegistrationMpmeDto } from './dto/register-mpme.dto';
 
 @Injectable()
 export class AuthService {
@@ -82,7 +83,7 @@ export class AuthService {
         userAgent,
         'Account is blocked',
       );
-      throw new UnauthorizedException('Account is blocked');
+      throw new UnauthorizedException('Ce compte est bloqué');
     }
 
     if (!user.isActive) {
@@ -94,7 +95,7 @@ export class AuthService {
         userAgent,
         'Account is inactive',
       );
-      throw new UnauthorizedException('Account is inactive');
+      throw new UnauthorizedException('Ce compte est inactif');
     }
 
     if (!user.isVerified) {
@@ -106,7 +107,9 @@ export class AuthService {
         userAgent,
         'Account is not verified',
       );
-      throw new UnauthorizedException('Compte non vérifié. Veuillez vérifier votre email pour activer votre compte');
+      throw new UnauthorizedException(
+        'Compte non vérifié. Veuillez vérifier votre email pour activer votre compte',
+      );
     }
 
     // Vérifier le nombre de tentatives échouées récentes
@@ -127,7 +130,7 @@ export class AuthService {
         'Account blocked due to too many failed attempts',
       );
       throw new UnauthorizedException(
-        'Account has been blocked due to too many failed attempts',
+        'Votre compte a été bloqué suite à trop de tentatives de connexion échouées. Veuillez contacter le support.',
       );
     }
 
@@ -144,7 +147,9 @@ export class AuthService {
         userAgent,
         'Invalid password',
       );
-      throw new UnauthorizedException('Invalid credentials');
+      throw new UnauthorizedException(
+        "Nom d\'utilisateur ou mot de passe incorrect",
+      );
     }
 
     // Reset failed login attempts on successful login
@@ -189,9 +194,143 @@ export class AuthService {
     };
   }
 
+  async registerMpme(
+    registerDto: RegistrationMpmeDto,
+    ip: string,
+    userAgent: string,
+  ) {
+    // Validate registration
+    await this.validateMpme(registerDto);
+
+    // Start transaction
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      // Hash password
+      const hashedPassword = await bcrypt.hash(registerDto.password, 10);
+
+      // Create user
+      const userRepo = queryRunner.manager.getRepository(User);
+
+      const user = userRepo.create({
+        email: registerDto.email.toLowerCase(),
+        passwordHash: hashedPassword,
+        firstName: this.capitalizeFirstLetter(registerDto.firstName),
+        lastName: this.capitalizeFirstLetter(registerDto.lastName),
+        phoneNumber: registerDto.phone,
+        cguAcceptedAt: registerDto.acceptCGU ? new Date() : null,
+        createdByIp: ip,
+        isActive: true,
+        isVerified: false,
+        failedLoginAttempts: 0,
+        isBlocked: false,
+      });
+      const savedUser = await queryRunner.manager.save(user);
+
+      // Create beneficiary status
+      const statusRepo = queryRunner.manager.getRepository(Status);
+      let registeredStatus = await statusRepo.findOne({
+        where: { code: 'REGISTERED', entityType: 'BENEFICIARY' },
+      });
+
+      if (!registeredStatus) {
+        registeredStatus = statusRepo.create({
+          code: 'REGISTERED',
+          name: 'Registered',
+          entityType: 'BENEFICIARY',
+          displayOrder: 1,
+          isActive: true,
+        });
+        registeredStatus = await queryRunner.manager.save(registeredStatus);
+      }
+
+      // Create beneficiary
+      const beneficiaryRepo = queryRunner.manager.getRepository(Beneficiary);
+      const beneficiary = beneficiaryRepo.create({
+        userId: savedUser.id,
+        companyId: null,
+        statusId: registeredStatus.id,
+        category: 'BURUNDIAN',
+      });
+      const savedBeneficiary = await queryRunner.manager.save(beneficiary);
+
+      // Create user consents
+      await this.saveUserConsents(
+        queryRunner,
+        savedUser.id,
+        registerDto,
+        ip,
+        userAgent,
+      );
+
+      // Assign beneficiary role
+      await this.assignBeneficiaryRole(queryRunner, savedUser.id);
+
+      // Commit transaction
+      await queryRunner.commitTransaction();
+
+      // Send notifications
+      try {
+        await this.createEmailVerification(savedUser);
+
+        // SMS confirmation if phone number is provided
+        //       if (savedUser.phoneNumber) {
+        //   await this.notificationsService.sendSms({
+        //     to: savedUser.phoneNumber,
+        //     message: `COPA: Bienvenue ${savedUser.firstName}! Votre inscription est réussie. Votre dossier sera validé sous 48h. Connectez-vous sur ${this.configService.get('APP_FRONTEND_URL')}`,
+        //   });
+        // }
+
+        this.logger.log(`Notifications sent to user ${savedUser.id}`);
+      } catch (notifError) {
+        // Log error
+        this.logger.error(
+          `Failed to send notifications to user ${savedUser.id}:`,
+          notifError,
+        );
+      }
+
+      // Return result
+      return {
+        success: true,
+        message:
+          'Inscription réussie ! Votre compte est en attente de validation.',
+        userId: savedUser.id,
+        beneficiaryId: savedBeneficiary.id,
+        email: savedUser.email,
+        firstName: savedUser.firstName,
+        requiresEmailVerification: false,
+        requiresDocumentUpload: true,
+        nextSteps: [
+          'Un email de confirmation vous a été envoyé',
+          'Un SMS de bienvenue a été envoyé sur votre téléphone',
+          'Votre dossier sera validé sous 24-48h',
+          'Vous recevrez une notification dès validation',
+          'Complétez votre profil et téléchargez vos documents',
+        ],
+      };
+    } catch (error) {
+      // Rollback en cas d'erreur
+      await queryRunner.rollbackTransaction();
+      this.logger.error('Registration failed:', error);
+
+      // if (error.code === '23505') {
+      //   // Duplicate key error
+      //   throw new ConflictException('Une erreur de duplication est survenue');
+      // }
+
+      throw new InternalServerErrorException(
+        "Erreur lors de l'inscription. Veuillez réessayer.",
+      );
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
   async register(registerDto: RegisterDto, ip: string, userAgent: string) {
     const { step1, step2, step3 } = registerDto;
-    const cacheKey = `registration:${step1.email}`;
 
     // Validate registration steps
     await this.validateStep1(step1);
@@ -666,6 +805,38 @@ export class AuthService {
       where: { code, entityType },
     });
     return status?.id || null;
+  }
+
+  private async validateMpme(dto: RegistrationMpmeDto): Promise<void> {
+    // Vérifier email unique (case-insensitive)
+    const existingUser = await this.userRepo.findOne({
+      where: { email: dto.email.toLowerCase() },
+    });
+
+    if (existingUser) {
+      throw new ConflictException('Cet email est déjà utilisé');
+    }
+
+    // Vérifier téléphone unique
+    const existingPhone = await this.userRepo.findOne({
+      where: { phoneNumber: dto.phone },
+    });
+
+    if (existingPhone) {
+      throw new ConflictException('Ce numéro de téléphone est déjà utilisé');
+    }
+
+    // Vérifier mot de passe
+    if (dto.password !== dto.passwordConfirmation) {
+      throw new BadRequestException('Les mots de passe ne correspondent pas');
+    }
+
+    // Vérifier CGU, politique de confidentialité et exactitude
+    if (!dto.acceptCGU || !dto.acceptPrivacyPolicy || !dto.certifyAccuracy) {
+      throw new BadRequestException(
+        "Vous devez accepter les conditions générales, la politique de confidentialité et certifier l'exactitude des informations",
+      );
+    }
   }
 
   private async validateStep1(dto: RegistrationStep1Dto): Promise<void> {

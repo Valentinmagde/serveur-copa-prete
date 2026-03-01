@@ -28,7 +28,7 @@ export class Company {
   headquartersAddress: Address;
 
   @Column({ name: 'headquarters_address_id', nullable: true })
-  headquartersAddressId: number;
+  headquartersAddressId: number | null;
 
   @Column({ name: 'registration_number', unique: true, nullable: true })
   registrationNumber: string;
@@ -74,6 +74,14 @@ export class Company {
 
   @Column({ name: 'activity_description', type: 'text', nullable: true })
   activityDescription: string;
+
+  @Column({
+    name: 'company_type',
+    type: 'varchar',
+    length: 20,
+    nullable: true,
+  })
+  companyType: string | null;
 
   @Column({ name: 'website_url', nullable: true })
   websiteUrl: string;
