@@ -925,6 +925,8 @@ export class AuthService {
       if (consentType.code === 'TERMS_AND_CONDITIONS') value = step3.acceptCGU;
       if (consentType.code === 'PRIVACY_POLICY')
         value = step3.acceptPrivacyPolicy;
+      if (consentType.code === 'CERTIFY_ACCURACY')
+        value = step3.certifyAccuracy;
       if (consentType.code === 'COMMUNICATIONS')
         value = step3.optInNotifications || false;
 
