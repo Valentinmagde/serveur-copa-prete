@@ -302,7 +302,6 @@ export class BeneficiariesService {
       // Mise à jour de l'entreprise
       if (step2) {
         const beneficiary = existingBeneficiary;
-        beneficiary.companyType = step2.companyType ?? null;
 
         if (step2.companyExists === 'yes') {
           const companyRepo = queryRunner.manager.getRepository(Company);
@@ -369,10 +368,15 @@ export class BeneficiariesService {
           }
         } else if (step2.companyExists === 'no' && beneficiary?.company) {
           // Supprimer l'entreprise si l'utilisateur n'en a plus
-          await queryRunner.manager.remove(beneficiary.company);
           beneficiary.companyId = null;
-          await queryRunner.manager.save(beneficiary);
+          // await queryRunner.manager.remove(beneficiary.company);
         }
+
+        if (step2?.companyStatus) {
+          beneficiary.companyType = step2.companyStatus;
+        }
+
+        await queryRunner.manager.save(beneficiary);
       }
 
       // Mise à jour des consentements

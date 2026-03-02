@@ -86,7 +86,6 @@ export class ProfileCompletionService {
       step3: this.isStep3Complete(beneficiary),
     };
 
-    this.logger.log("=== ÉTAPE 2 ===", this.isStep2Complete(beneficiary));
     // Optimisation 3: Déterminer le pourcentage et l'étape de façon déclarative
     const { percentage, lastStep } = this.calculateCompletionPercentage(steps);
 
