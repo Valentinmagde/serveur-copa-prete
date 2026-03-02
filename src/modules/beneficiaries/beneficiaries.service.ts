@@ -364,7 +364,7 @@ export class BeneficiariesService {
             });
             const savedCompany = await queryRunner.manager.save(company);
             beneficiary.companyId = savedCompany.id;
-            await queryRunner.manager.save(beneficiary);
+            // await queryRunner.manager.save(beneficiary);
           }
         } else if (step2.companyExists === 'no' && beneficiary?.company) {
           // Supprimer l'entreprise si l'utilisateur n'en a plus
