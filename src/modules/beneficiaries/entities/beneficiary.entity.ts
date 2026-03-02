@@ -39,6 +39,14 @@ export class Beneficiary {
   @Column({ name: 'company_id', nullable: true })
   companyId: number | null;
 
+  @Column({
+    name: 'company_type',
+    type: 'varchar',
+    length: 20,
+    nullable: true,
+  })
+  companyType: string | null;
+
   @ManyToOne(() => User)
   @JoinColumn({ name: 'validated_by_user_id' })
   validatedBy: User;

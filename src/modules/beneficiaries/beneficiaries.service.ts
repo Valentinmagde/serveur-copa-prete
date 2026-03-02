@@ -302,6 +302,7 @@ export class BeneficiariesService {
       // Mise à jour de l'entreprise
       if (step2) {
         const beneficiary = existingBeneficiary;
+        beneficiary.companyType = step2.companyType ?? null;
 
         if (step2.companyExists === 'yes') {
           const companyRepo = queryRunner.manager.getRepository(Company);
