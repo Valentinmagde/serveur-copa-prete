@@ -9,15 +9,33 @@ import { Status } from '../reference/entities/status.entity';
 import { User } from '../users/entities/user.entity';
 import { Company } from '../companies/entities/company.entity';
 import { ProfileCompletionService } from './profile-completion.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationsModule } from '../notifications/notifications.module';
+import { Notification } from '../notifications/entities/notification.entity';
 
 @Module({
   imports: [
     UsersModule,
     CompaniesModule,
-    TypeOrmModule.forFeature([User, Beneficiary, Company, Status]),
+    NotificationsModule,
+    TypeOrmModule.forFeature([
+      User,
+      Beneficiary,
+      Company,
+      Status,
+      Notification,
+    ]),
   ],
   controllers: [BeneficiariesController],
-  providers: [BeneficiariesService, ProfileCompletionService],
-  exports: [BeneficiariesService, ProfileCompletionService],
+  providers: [
+    BeneficiariesService,
+    ProfileCompletionService,
+    NotificationsService,
+  ],
+  exports: [
+    BeneficiariesService,
+    ProfileCompletionService,
+    NotificationsService,
+  ],
 })
 export class BeneficiariesModule {}

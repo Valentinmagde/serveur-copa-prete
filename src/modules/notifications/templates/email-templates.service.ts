@@ -25,6 +25,13 @@ export interface TemplateData {
   // Email confirmation
   activationLink?: string;
 
+  // Confirmation de profil
+  dateEnregistrement?: string;
+  datePreselection?: string;
+  email?: string;
+  dateSoumissionPlan?: string;
+  dateResultatsPreselection?: string;
+
   // Plan d'affaires
   dossierNumero?: string;
   dateSoumission?: string;
@@ -173,6 +180,154 @@ export class EmailTemplatesService {
       © ${new Date().getFullYear()} COPA - Concours de Plans d'Affaires du Burundi
       Pour toute assistance, contactez-nous au ${this.telephoneSupport}
     `;
+
+    return { subject, html, text };
+  }
+
+  /**
+   * Template: Confirmation d'enregistrement du profil entrepreneur
+   */
+  getConfirmationProfilEnregistre(data: TemplateData): {
+    subject: string;
+    html: string;
+    text: string;
+  } {
+    const subject = `Profil entrepreneur enregistré – COPA ${data.annee || '2026'}`;
+
+    const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Profil enregistré - COPA</title>
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background-color: #1F4E79; color: white; padding: 20px; text-align: center; }
+        .content { padding: 30px 20px; background-color: #f9f9f9; }
+        .info-box {
+          background-color: #e9ecef;
+          padding: 20px;
+          border-radius: 5px;
+          margin: 20px 0;
+        }
+        .info-row {
+          margin-bottom: 10px;
+          border-bottom: 1px dashed #dee2e6;
+          padding-bottom: 8px;
+        }
+        .info-row:last-child {
+          border-bottom: none;
+          margin-bottom: 0;
+          padding-bottom: 0;
+        }
+        .label {
+          font-weight: bold;
+          display: inline-block;
+          width: 150px;
+        }
+        .button { 
+          display: inline-block; 
+          padding: 12px 24px; 
+          background-color: #1F4E79; 
+          color: white !important; 
+          text-decoration: none; 
+          border-radius: 5px;
+          margin: 20px 0;
+        }
+        .footer { 
+          margin-top: 30px; 
+          padding: 20px; 
+          font-size: 12px; 
+          color: #666;
+          border-top: 1px solid #ddd;
+        }
+        .steps { margin: 20px 0; }
+        .step { margin-bottom: 15px; padding-left: 25px; }
+        .badge {
+          background-color: #1F4E79;
+          color: white;
+          padding: 5px 10px;
+          border-radius: 3px;
+          font-size: 14px;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>Profil enregistré</h1>
+        </div>
+        
+        <div class="content">
+          <p>Bonjour <strong>${data.firstName || ''} ${data.lastName || ''}</strong>,</p>
+          
+          <p>Nous sommes ravis de vous confirmer que votre <strong>profil d'entrepreneur</strong> a bien été enregistré sur la plateforme du Concours de Plans d'Affaires (COPA).</p>
+          
+          <div class="info-box">
+            <div class="info-row"><span class="label">Date d'enregistrement :</span> ${data.dateEnregistrement || new Date().toLocaleDateString('fr-FR')}</div>
+            <div class="info-row"><span class="label">Statut :</span> <span style="color: #1F4E79; font-weight: bold;">En attente de pré-sélection</span></div>
+            <div class="info-row"><span class="label">Email :</span> ${data.email || ''}</div>
+          </div>
+          
+          <div class="steps">
+            <h3>Prochaines étapes :</h3>
+            <div class="step">✓ <strong>Pré-sélection des profils</strong> – ${data.datePreselection || '15-30 avril 2026'}</div>
+            <div class="step">✓ <strong>Formation</strong> (si pré-sélectionné) – ${data.dateFormation || '10-25 mai 2026'}</div>
+            <div class="step">✓ <strong>Soumission du plan d'affaires</strong> – ${data.dateSoumissionPlan || 'Juin 2026'}</div>
+          </div>
+          
+          <p>Vous serez notifié(e) par <strong>email et SMS</strong> dès la publication des résultats de pré-sélection.</p>
+          <p><strong>Date estimée des résultats :</strong> ${data.dateResultatsPreselection || '30 avril 2026'}</p>
+          
+          <div style="text-align: center;">
+            <a href="#" class="button">Accéder à mon espace</a>
+          </div>
+          
+          <p style="margin-top: 20px;"><small>Votre numéro de dossier vous sera communiqué après la soumission de votre plan d'affaires.</small></p>
+          
+          // <p>Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur :<br>
+          // <a href="${this.baseUrl}/espace-mpme/tableau-de-bord">${this.baseUrl}/espace-mpme/tableau-de-bord</a></p>
+        </div>
+        
+        <div class="footer">
+          <p>© ${new Date().getFullYear()} COPA - Concours de Plans d'Affaires du Burundi. Tous droits réservés.</p>
+          <p>Pour toute assistance, contactez-nous au <strong>${this.telephoneSupport}</strong> ou par email à <strong>contact@copa-prete.bi</strong></p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+    const text = `
+    Profil entrepreneur enregistré – COPA ${data.annee || '2026'}
+
+    Bonjour ${data.firstName || ''} ${data.lastName || ''},
+
+    Nous sommes ravis de vous confirmer que votre profil d'entrepreneur a bien été enregistré sur la plateforme du Concours de Plans d'Affaires (COPA).
+
+    RÉCAPITULATIF :
+    Date d'enregistrement : ${data.dateEnregistrement || new Date().toLocaleDateString('fr-FR')}
+    Statut : En attente de pré-sélection
+    Email : ${data.email || ''}
+
+    Prochaines étapes :
+    - Pré-sélection des profils : ${data.datePreselection || '15-30 avril 2026'}
+    - Formation (si pré-sélectionné) : ${data.dateFormation || '10-25 mai 2026'}
+    - Soumission du plan d'affaires : ${data.dateSoumissionPlan || 'Juin 2026'}
+
+    Vous serez notifié(e) par email et SMS dès la publication des résultats de pré-sélection.
+    Date estimée des résultats : ${data.dateResultatsPreselection || '30 avril 2026'}
+
+    Accédez à votre espace personnel :
+    ${this.baseUrl}/espace-mpme/tableau-de-bord
+
+    Votre numéro de dossier vous sera communiqué après la soumission de votre plan d'affaires.
+
+    © ${new Date().getFullYear()} COPA - Concours de Plans d'Affaires du Burundi
+    Pour toute assistance, contactez-nous au ${this.telephoneSupport} ou par email à support@copa.bi
+  `;
 
     return { subject, html, text };
   }

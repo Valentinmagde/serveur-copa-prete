@@ -11,7 +11,11 @@ import { ConfigModule } from '@nestjs/config';
 import { EmailTemplatesService } from './templates/email-templates.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Notification]), UsersModule, ConfigModule],
+  imports: [
+    TypeOrmModule.forFeature([Notification]),
+    UsersModule,
+    ConfigModule,
+  ],
   controllers: [NotificationsController],
   providers: [
     NotificationsService,

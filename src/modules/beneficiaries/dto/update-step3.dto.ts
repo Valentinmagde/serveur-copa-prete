@@ -31,4 +31,13 @@ export class UpdateStep3Dto {
   })
   @IsBoolean()
   optInNotifications: boolean;
+
+  @ApiProperty({
+    description: 'Profil complet et soumis à la validation',
+    example: true,
+    required: false,
+    default: false,
+  })
+  @IsBoolean()
+  isProfileCompleted: boolean;
 }

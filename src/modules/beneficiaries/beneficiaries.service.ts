@@ -31,6 +31,11 @@ import { Company } from '../companies/entities/company.entity';
 import { UserConsent } from '../users/entities/user-consent.entity';
 import { ConsentType } from '../reference/entities/consent-type.entity';
 import { ProfileCompletionService } from './profile-completion.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import {
+  NotificationChannel,
+  NotificationType,
+} from '../notifications/dto/create-notification.dto';
 
 @Injectable()
 export class BeneficiariesService {
@@ -45,6 +50,7 @@ export class BeneficiariesService {
     private dataSource: DataSource,
     @InjectRepository(User) private userRepo: Repository<User>,
     private profileCompletionService: ProfileCompletionService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async create(
@@ -376,6 +382,10 @@ export class BeneficiariesService {
           beneficiary.companyType = step2.companyStatus;
         }
 
+        if (step3?.isProfileCompleted) {
+          beneficiary.isProfileComplete = step3.isProfileCompleted;
+        }
+
         await queryRunner.manager.save(beneficiary);
       }
 
@@ -406,10 +416,49 @@ export class BeneficiariesService {
       // Journalisation
       this.logger.log(`Beneficiary ${beneficiaryId} updated successfully`);
 
+      const oldPercentage = existingBeneficiary.profileCompletionPercentage;
+
       const percentage =
         await this.profileCompletionService.calculateAndUpdateCompletion(
           parseInt(beneficiaryId),
         );
+
+      // === ENVOI DE L'EMAIL SI 100% ET QUE C'EST LA PREMIÈRE FOIS ===
+      if (percentage === 100 && oldPercentage < 100) {
+        try {
+          this.logger.log(
+            `🎉 Profil complet à 100% pour ${user.email}. Envoi de l'email de confirmation...`,
+          );
+
+          // Récupérer l'utilisateur complet avec toutes ses informations
+          const completeUser = {
+            id: user.id,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            email: user.email,
+            phoneNumber: user.phoneNumber,
+          };
+
+          // Envoyer l'email de confirmation
+          await this.notificationsService.sendConfirmationProfilEnregistre({
+            user: completeUser,
+            datePreselection: this.getPreselectionDate(),
+            dateFormation: this.getFormationDate(),
+            dateResultatsPreselection: this.getResultatsDate(),
+          });
+
+          this.logger.log(`✅ Email de confirmation envoyé à ${user.email}`);
+        } catch (emailError) {
+          // Ne pas bloquer la réponse si l'email échoue
+          this.logger.error(
+            `❌ Erreur envoi email à ${user.email}:`,
+            emailError,
+          );
+
+          // Optionnel: Sauvegarder l'erreur pour un retry ultérieur
+          await this.saveFailedEmailNotification(user.id, emailError);
+        }
+      }
 
       // Retourner le résultat
       return {
@@ -550,5 +599,51 @@ export class BeneficiariesService {
 
     const updated = await this.beneficiaryRepository.save(beneficiary);
     return this.findById(updated.id);
+  }
+
+  /**
+   * Méthodes utilitaires pour les dates
+   */
+  private getPreselectionDate(): string {
+    // À configurer selon vos besoins (peut venir d'une config ou base de données)
+    const year = new Date().getFullYear();
+    return `15 - 30 avril ${year}`;
+  }
+
+  private getFormationDate(): string {
+    const year = new Date().getFullYear();
+    return `10 - 25 mai ${year}`;
+  }
+
+  private getResultatsDate(): string {
+    const year = new Date().getFullYear();
+    return `30 avril ${year}`;
+  }
+
+  /**
+   * Sauvegarde une notification d'email échoué pour retry ultérieur
+   */
+  private async saveFailedEmailNotification(
+    userId: number,
+    error: any,
+  ): Promise<void> {
+    try {
+      // Vous pouvez créer une table FailedEmails ou utiliser un système de queue
+      await this.notificationsService.create({
+        channel: NotificationChannel.EMAIL,
+        type: NotificationType.CONFIRMATION,
+        title: 'Confirmation profil complet (échec)',
+        content: 'Email de confirmation non envoyé - sera retenté',
+        recipientId: userId,
+        data: {
+          error: error.message,
+          retryCount: 0,
+          status: 'FAILED',
+        },
+        scheduledAt: new Date(Date.now() + 3600000) as any,
+      });
+    } catch (saveError) {
+      this.logger.error("Impossible de sauvegarder l'échec:", saveError);
+    }
   }
 }

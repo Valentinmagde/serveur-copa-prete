@@ -257,6 +257,170 @@ export class NotificationsService {
     }
   }
 
+  /**
+   * Envoie un email de confirmation d'enregistrement de profil entrepreneur
+   * @param options - Les options pour l'envoi de l'email
+   * @returns Promise avec le résultat de l'envoi
+   */
+  async sendConfirmationProfilEnregistre(options: {
+    user: any;
+    datePreselection?: string;
+    dateFormation?: string;
+    dateResultatsPreselection?: string;
+    customMessage?: string;
+  }): Promise<any> {
+    try {
+      const {
+        user,
+        datePreselection,
+        dateFormation,
+        dateResultatsPreselection,
+        customMessage,
+      } = options;
+
+      // Vérification que l'utilisateur existe
+      if (!user || !user.email) {
+        throw new BadRequestException('Utilisateur ou email manquant');
+      }
+
+      this.logger.log(
+        `Préparation email confirmation profil pour ${user.email}`,
+      );
+
+      // Générer les dates par défaut si non fournies
+      const currentYear = new Date().getFullYear();
+      const defaultPreselection = '15 - 30 avril ' + currentYear;
+      const defaultFormation = '10 - 25 mai ' + currentYear;
+      const defaultResultats = '30 avril ' + currentYear;
+
+      // Récupérer le template depuis EmailTemplatesService
+      const template = this.emailTemplates.getConfirmationProfilEnregistre({
+        firstName: user.firstName || '',
+        lastName: user.lastName || '',
+        fullName: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+        email: user.email,
+        telephone: user.phoneNumber || '',
+        dateEnregistrement: this.emailTemplates.formatDate(new Date()),
+        datePreselection: datePreselection || defaultPreselection,
+        dateFormation: dateFormation || defaultFormation,
+        dateResultatsPreselection:
+          dateResultatsPreselection || defaultResultats,
+        dateSoumissionPlan: 'Juin ' + currentYear,
+        annee: currentYear.toString(),
+        // messagePersonnalise: customMessage || '',
+      });
+
+      // Envoyer l'email via Twilio (ou SendGrid/Brevo)
+      const result = await this.twilioService.sendEmail({
+        to: user.email,
+        subject: template.subject,
+        html: template.html,
+        text: template.text,
+        attachments: [], // Si vous voulez joindre un fichier
+      });
+
+      // Sauvegarder la notification en base de données
+      const notification = this.notificationRepository.create({
+        recipientUserId: user.id,
+        channel: NotificationChannel.EMAIL,
+        notificationType: NotificationType.CONFIRMATION,
+        title: template.subject,
+        content: template.text,
+        context: {
+          emailType: 'confirmation_profil',
+          dateEnregistrement: new Date(),
+          datePreselection: datePreselection || defaultPreselection,
+          dateResultats: dateResultatsPreselection || defaultResultats,
+          messageId: result.messageId,
+          provider: result.provider || 'unknown',
+          customMessage: customMessage || null,
+        },
+        // metadata: {
+        //   userAgent: options.user.userAgent, // Si vous voulez tracker
+        //   ipAddress: options.user.ipAddress,
+        // },
+        isSent: true,
+        sentAt: new Date(),
+        isRead: false,
+      });
+
+      await this.notificationRepository.save(notification);
+
+      this.logger.log(
+        `✅ Email confirmation profil envoyé avec succès à ${user.email} - Notification #${notification.id}`,
+      );
+
+      // Envoyer également un SMS de confirmation (optionnel)
+      try {
+        if (user.phoneNumber) {
+          const smsContent = `COPA: Votre profil entrepreneur est enregistré! Résultats pré-sélection: ${dateResultatsPreselection || defaultResultats}. Suivez votre dossier sur votre espace personnel.`;
+
+          await this.twilioService.sendSms(user.phoneNumber, smsContent);
+
+          this.logger.log(`SMS de confirmation envoyé à ${user.phoneNumber}`);
+        }
+      } catch (smsError) {
+        // Ne pas bloquer le processus si le SMS échoue
+        this.logger.warn(`Échec envoi SMS à ${user.phoneNumber}:`, smsError);
+      }
+
+      return {
+        success: true,
+        messageId: result.messageId,
+        notificationId: notification.id,
+        provider: result.provider || 'unknown',
+        timestamp: new Date(),
+        email: user.email,
+        smsEnvoye: !!user.phoneNumber,
+      };
+    } catch (error) {
+      this.logger.error(
+        `❌ Erreur envoi email confirmation profil à ${options.user?.email}:`,
+        error,
+      );
+
+      // Sauvegarder l'échec en base de données
+      try {
+        if (options.user && options.user.id) {
+          const failedNotification = this.notificationRepository.create({
+            recipientUserId: options.user.id,
+            channel: NotificationChannel.EMAIL,
+            notificationType: NotificationType.CONFIRMATION,
+            title: 'Confirmation de votre profil entrepreneur',
+            content: 'Email de confirmation (en attente)',
+            context: {
+              emailType: 'confirmation_profil',
+              error: error.message,
+              errorStack: error.stack,
+              dateTentative: new Date(),
+            },
+            isSent: false,
+            // metadata: {
+            //   errorCode: error.code || 'UNKNOWN_ERROR',
+            // },
+          });
+          await this.notificationRepository.save(failedNotification);
+        }
+      } catch (saveError) {
+        this.logger.error(
+          'Impossible de sauvegarder la notification en échec:',
+          saveError,
+        );
+      }
+
+      // Option 1: Relancer l'erreur (bloque le processus)
+      // throw new InternalServerErrorException(`Échec envoi email: ${error.message}`);
+
+      // Option 2: Retourner un objet d'échec (ne bloque pas)
+      return {
+        success: false,
+        error: error.message,
+        email: options.user?.email,
+        timestamp: new Date(),
+      };
+    }
+  }
+
   async sendPlanSoumis(user: any, plan: any) {
     const template = this.emailTemplates.getPlanAffairesSoumis({
       firstName: user.firstName,

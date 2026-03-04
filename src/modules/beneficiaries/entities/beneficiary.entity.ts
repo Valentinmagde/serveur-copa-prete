@@ -145,6 +145,13 @@ export class Beneficiary {
   })
   profileCompletedAt: Date;
 
+  @Column({
+    name: 'is_profile_complete',
+    type: 'boolean',
+    default: false,
+  })
+  isProfileComplete: boolean;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
