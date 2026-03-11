@@ -194,12 +194,27 @@ export class BeneficiariesService {
       order: { createdAt: 'DESC' },
     });
 
+    const latestDocuments = Array.from(
+      documents
+        .reduce((map, doc) => {
+          // Si la clé n'existe pas encore, ou si ce document est plus récent
+          if (
+            !map.has(doc.documentKey) ||
+            doc.createdAt > map.get(doc.documentKey).createdAt
+          ) {
+            map.set(doc.documentKey, doc);
+          }
+          return map;
+        }, new Map())
+        .values(),
+    );
+
     const percentage =
       await this.profileCompletionService.calculateAndUpdateCompletion(
         beneficiary.id,
       );
 
-    const documentsByKey = documents.reduce((acc, doc) => {
+    const documentsByKey = latestDocuments.reduce((acc, doc) => {
       if (doc.documentKey) {
         // Garder seulement le dernier document pour chaque type
         acc[doc.documentKey] = doc;
@@ -522,7 +537,7 @@ export class BeneficiariesService {
           // Limiter à 99999 maximum
           if (nextNumber > 99999) {
             throw new Error(
-              'Limite de numéros de bénéficiaires atteinte (99999)'
+              'Limite de numéros de bénéficiaires atteinte (99999)',
             );
           }
 
