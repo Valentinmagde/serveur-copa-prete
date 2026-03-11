@@ -1,4 +1,3 @@
-// services/profile-completion.service.ts
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -13,58 +12,7 @@ export class ProfileCompletionService {
     private beneficiaryRepository: Repository<Beneficiary>,
   ) {}
 
-  // async calculateAndUpdateCompletion(beneficiaryId: number): Promise<number> {
-  //   const beneficiary = await this.beneficiaryRepository.findOne({
-  //     where: { id: beneficiaryId },
-  //     relations: [
-  //       'user',
-  //       'user.consents',
-  //       'user.consents.consentType',
-  //       'user.primaryAddress',
-  //       'user.gender',
-  //       'company',
-  //     ],
-  //   });
-
-  //   if (!beneficiary) return 0;
-
-  //   let percentage = 0;
-  //   let lastStep = '';
-
-  //   // Vérifier étape 1 (33%)
-  //   if (this.isStep1Complete(beneficiary)) {
-  //     percentage = 33;
-  //     lastStep = 'STEP1';
-  //   }
-
-  //   // Vérifier étape 2 (67%)
-  //   if (this.isStep2Complete(beneficiary)) {
-  //     percentage = this.isStep1Complete(beneficiary) ? 67 : 33;
-  //     lastStep = 'STEP2';
-  //   }
-
-  //   // Vérifier étape 3 (100%)
-  //   if (this.isStep3Complete(beneficiary)) {
-  //     percentage = this.isStep1Complete(beneficiary) && this.isStep2Complete(beneficiary) ? 100 : !this.isStep1Complete(beneficiary) && !this.isStep2Complete(beneficiary) ? 0 : this.isStep1Complete(beneficiary) || this.isStep2Complete(beneficiary) ? 67 : 33;
-  //     lastStep = 'STEP3';
-
-  //     // Si c'est la première fois que le profil est complet à 100%
-  //     if (!beneficiary.profileCompletedAt) {
-  //       beneficiary.profileCompletedAt = new Date();
-  //     }
-  //   }
-
-  //   // Mettre à jour le bénéficiaire
-  //   beneficiary.profileCompletionPercentage = percentage;
-  //   beneficiary.profileCompletionStep = lastStep;
-
-  //   await this.beneficiaryRepository.save(beneficiary);
-
-  //   return percentage;
-  // }
-
   async calculateAndUpdateCompletion(beneficiaryId: number): Promise<number> {
-    // Optimisation 1: Sélectionner uniquement les champs nécessaires
     const beneficiary = await this.beneficiaryRepository.findOne({
       where: { id: beneficiaryId },
       relations: [
@@ -79,170 +27,144 @@ export class ProfileCompletionService {
 
     if (!beneficiary) return 0;
 
-    // Optimisation 2: Calculer une seule fois l'état des étapes
-    const steps = {
-      step1: this.isStep1Complete(beneficiary),
-      step2: this.isStep2Complete(beneficiary),
-      step3: this.isStep3Complete(beneficiary),
-    };
+    // Calculer l'état de chaque étape
+    const step1Complete = this.isStep1Complete(beneficiary);
+    const step2Complete = this.isStep2Complete(beneficiary);
+    const step3Complete = this.isStep3Complete(beneficiary);
 
-    // Optimisation 3: Déterminer le pourcentage et l'étape de façon déclarative
-    const { percentage, lastStep } = this.calculateCompletionPercentage(steps);
+    this.logger.log(
+      `Étapes: STEP1=${step1Complete}, STEP2=${step2Complete}, STEP3=${step3Complete}`,
+    );
 
-    // Optimisation 4: Gérer la date de complétion uniquement si nécessaire
-    const shouldUpdateCompletedAt =
-      percentage === 100 &&
-      !beneficiary.profileCompletedAt &&
-      steps.step1 &&
-      steps.step2 &&
-      steps.step3;
+    // Déterminer le pourcentage et l'étape en cours
+    let percentage = 0;
+    let lastStep = '';
 
-    if (shouldUpdateCompletedAt) {
-      beneficiary.profileCompletedAt = new Date();
+    if (step1Complete) {
+      percentage = 33;
+      lastStep = 'STEP1';
     }
 
-    // Optimisation 5: Sauvegarder uniquement si des changements ont eu lieu
+    if (step1Complete && step2Complete) {
+      percentage = 67;
+      lastStep = 'STEP2';
+    }
+
+    if (step1Complete && step2Complete && step3Complete) {
+      percentage = 100;
+      lastStep = 'STEP3';
+
+      // Marquer le profil comme complet si ce n'est pas déjà fait
+      if (!beneficiary.profileCompletedAt) {
+        beneficiary.profileCompletedAt = new Date();
+      }
+    }
+
+    // Mettre à jour le bénéficiaire si nécessaire
     const hasChanges =
       beneficiary.profileCompletionPercentage !== percentage ||
-      beneficiary.profileCompletionStep !== lastStep ||
-      shouldUpdateCompletedAt;
+      beneficiary.profileCompletionStep !== lastStep;
 
     if (hasChanges) {
       beneficiary.profileCompletionPercentage = percentage;
       beneficiary.profileCompletionStep = lastStep;
       await this.beneficiaryRepository.save(beneficiary);
+      this.logger.log(
+        `Profil ${beneficiaryId} mis à jour: ${percentage}% (${lastStep})`,
+      );
     }
 
     return percentage;
   }
 
-  private calculateCompletionPercentage(steps: {
-    step1: boolean;
-    step2: boolean;
-    step3: boolean;
-  }): { percentage: number; lastStep: string } {
-    const { step1, step2, step3 } = steps;
-
-    // Table de décision claire et maintenable
-    if (step1 && step2 && step3) {
-      return { percentage: 100, lastStep: 'STEP3' };
-    }
-
-    if (step1 && step3) {
-      return { percentage: 67, lastStep: 'STEP1' };
-    }
-
-    if (step1 && step2) {
-      return { percentage: 67, lastStep: 'STEP2' };
-    }
-
-    if (step1) {
-      return { percentage: 33, lastStep: 'STEP1' };
-    }
-
-    if (step2) {
-      return { percentage: 33, lastStep: 'STEP2' };
-    }
-
-    if (step3) {
-      return { percentage: 33, lastStep: 'STEP1' };
-    }
-
-    return { percentage: 0, lastStep: '' };
-  }
-
   private isStep1Complete(beneficiary: Beneficiary): boolean {
     const user = beneficiary.user;
 
-    // Vérifier les champs obligatoires de l'étape 1
-    return !!(
-      user?.email &&
-      user?.firstName &&
-      user?.lastName &&
-      user?.birthDate &&
-      user?.genderId &&
-      user?.phoneNumber &&
-      user?.primaryAddressId
-    );
+    if (!user) return false;
+
+    // Champs obligatoires de l'étape 1
+    const requiredFields = [
+      user.email,
+      user.firstName,
+      user.lastName,
+      user.birthDate,
+      user.genderId,
+      user.phoneNumber,
+      user.primaryAddressId,
+    ];
+
+    const allFieldsPresent = requiredFields.every((field) => !!field);
+
+    if (!allFieldsPresent) {
+      this.logger.debug(`STEP1 incomplet: champs manquants`);
+    }
+
+    return allFieldsPresent;
   }
 
   private isStep2Complete(beneficiary: Beneficiary): boolean {
-    // Si l'utilisateur n'a pas d'entreprise, l'étape 2 est considérée comme complète
+    // Si pas d'entreprise (project), l'étape 2 est considérée comme complète
     if (beneficiary.companyType === 'project') {
       return true;
     }
 
-    // Si l'utilisateur a une entreprise, vérifier les champs
-    if (beneficiary.company) {
-      return !!(
-        beneficiary.company.companyName &&
-        beneficiary.company.taxIdNumber &&
-        beneficiary.company.primarySectorId &&
-        beneficiary.company.creationDate &&
-        beneficiary.company.permanentEmployees &&
-        beneficiary.company.activityDescription
-      );
+    const company = beneficiary.company;
+
+    // Si l'utilisateur a une entreprise, vérifier les champs obligatoires
+    if (company) {
+      const requiredFields = [
+        company.companyName,
+        company.taxIdNumber,
+        company.primarySectorId,
+        company.creationDate,
+        company.permanentEmployees,
+        company.activityDescription,
+      ];
+
+      const allFieldsPresent = requiredFields.every((field) => !!field);
+
+      if (!allFieldsPresent) {
+        this.logger.debug(`STEP2 incomplet: champs entreprise manquants`);
+      }
+
+      return allFieldsPresent;
     }
 
     return false;
   }
 
   private isStep3Complete(beneficiary: Beneficiary): boolean {
-    console.log('=== VÉRIFICATION ÉTAPE 3 ===');
-
-    if (!beneficiary?.user) {
-      console.log("❌ Pas d'utilisateur associé");
-      return false;
-    }
-
     const user = beneficiary.user;
-    console.log('User ID:', user.id);
-    console.log('cguAcceptedAt:', user.cguAcceptedAt);
 
-    if (!user.consents || !Array.isArray(user.consents)) {
-      console.log('❌ Pas de consentements');
-      return false;
-    }
+    if (!user) return false;
 
-    console.log('Nombre de consentements:', user.consents.length);
-
-    // Afficher tous les consentements pour debug
-    // user.consents.forEach((consent) => {
-    //   console.log(
-    //     `- ${consent.consentType.code}: ${consent.value} (givenAt: ${consent.givenAt})`,
-    //   );
-    // });
-
-    // Vérifier les consentements requis
+    // Vérifier que les consentements requis sont présents et valides
     const requiredConsents = [
       'TERMS_AND_CONDITIONS',
       'PRIVACY_POLICY',
       'CERTIFY_ACCURACY',
     ];
 
+    if (!user.consents || user.consents.length === 0) {
+      this.logger.debug('STEP3 incomplet: aucun consentement');
+      return false;
+    }
+
     const consentMap = new Map(
       user.consents.map((consent) => [consent.consentType.code, consent]),
     );
 
-    let allRequiredValid = true;
+    const allConsentsValid = requiredConsents.every(
+      (code) => consentMap.get(code)?.value === true,
+    );
 
-    for (const requiredCode of requiredConsents) {
-      const consent = consentMap.get(requiredCode);
-      const isValid = consent?.value === true;
-
-      console.log(`${requiredCode}: ${isValid ? '✅' : '❌'}`, {
-        exists: !!consent,
-        value: consent?.value,
-        givenAt: consent?.givenAt,
-      });
-
-      if (!isValid) {
-        allRequiredValid = false;
-      }
+    if (!allConsentsValid) {
+      this.logger.debug('STEP3 incomplet: consentements requis manquants');
     }
 
-    const result = allRequiredValid && !!user.cguAcceptedAt;
+    // Vérifier que les CGU ont été acceptées
+    const cguAccepted = !!user.cguAcceptedAt;
 
-    return result;
+    return allConsentsValid && cguAccepted;
   }
 }

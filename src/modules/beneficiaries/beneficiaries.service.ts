@@ -36,6 +36,7 @@ import {
   NotificationChannel,
   NotificationType,
 } from '../notifications/dto/create-notification.dto';
+import { Document } from '../documents/entities/document.entity';
 
 @Injectable()
 export class BeneficiariesService {
@@ -51,6 +52,8 @@ export class BeneficiariesService {
     @InjectRepository(User) private userRepo: Repository<User>,
     private profileCompletionService: ProfileCompletionService,
     private readonly notificationsService: NotificationsService,
+    @InjectRepository(Document)
+    private readonly documentRepository: Repository<Document>,
   ) {}
 
   async create(
@@ -167,6 +170,11 @@ export class BeneficiariesService {
         'user.primaryAddress',
         'user.gender',
         'company',
+        'company.address',
+        'company.status',
+        'company.legalForm',
+        'company.primarySector',
+        'company.secondarySector',
         'status',
       ],
     });
@@ -177,26 +185,35 @@ export class BeneficiariesService {
       );
     }
 
+    const documents = await this.documentRepository.find({
+      where: {
+        entityId: beneficiary.id,
+        entityType: 'beneficiary',
+      },
+      relations: ['documentType', 'uploadedBy'],
+      order: { createdAt: 'DESC' },
+    });
+
     const percentage =
       await this.profileCompletionService.calculateAndUpdateCompletion(
         beneficiary.id,
       );
 
+    const documentsByKey = documents.reduce((acc, doc) => {
+      if (doc.documentKey) {
+        // Garder seulement le dernier document pour chaque type
+        acc[doc.documentKey] = doc;
+      }
+      return acc;
+    }, {});
+
     return {
       ...beneficiary,
       profileCompletion: percentage,
+      documents: documents,
+      documentsByKey: documentsByKey,
     };
   }
-
-  // async update(
-  //   id: number,
-  //   updateBeneficiaryDto: UpdateBeneficiaryDto,
-  // ): Promise<Beneficiary> {
-  //   const beneficiary = await this.findById(id);
-  //   Object.assign(beneficiary, updateBeneficiaryDto);
-  //   const updated = await this.beneficiaryRepository.save(beneficiary);
-  //   return this.findById(updated.id);
-  // }
 
   async update(
     beneficiaryId: string,
@@ -254,6 +271,9 @@ export class BeneficiariesService {
             step1.provinceId ?? user.primaryAddress.provinceId;
           user.primaryAddress.communeId =
             step1.communeId ?? user.primaryAddress.communeId;
+          user.primaryAddress.neighborhood =
+            step1.neighborhood ?? user.primaryAddress.neighborhood;
+          user.primaryAddress.street = step1.zone ?? user.primaryAddress.street;
           const savedAddress = await queryRunner.manager.save(
             user.primaryAddress,
           );
@@ -303,7 +323,34 @@ export class BeneficiariesService {
           step1.status === 'refugie' ? 'REFUGEE' : 'BURUNDIAN';
       }
 
+      // Mise à jour de la fonction du bénéficiaire dans l'entreprise
+      if (step1?.position) {
+        existingBeneficiary.position =
+          step1.position || existingBeneficiary.position;
+      }
+
+      // Mise à jour des Questions d'éligibilité du bénéficiaire
+      if (step1) {
+        existingBeneficiary.maritalStatus = step1.maritalStatus;
+        existingBeneficiary.educationLevel = step1.educationLevel;
+        existingBeneficiary.isPublicServant = step1.isPublicServant;
+        existingBeneficiary.isRelativeOfPublicServant =
+          step1.isRelativeOfPublicServant;
+        existingBeneficiary.isPublicIntern = step1.isPublicIntern;
+        existingBeneficiary.isRelativeOfPublicIntern =
+          step1.isRelativeOfPublicIntern;
+        existingBeneficiary.wasHighOfficer = step1.wasHighOfficer;
+        existingBeneficiary.isRelativeOfHighOfficer =
+          step1.isRelativeOfHighOfficer;
+        existingBeneficiary.hasProjectLink = step1.hasProjectLink;
+        existingBeneficiary.isDirectSupplierToProject =
+          step1.isDirectSupplierToProject;
+        existingBeneficiary.hasPreviousGrant = step1.hasPreviousGrant;
+        existingBeneficiary.previousGrantDetails = step1.previousGrantDetails;
+      }
+
       const savedUser = await queryRunner.manager.save(user);
+      await queryRunner.manager.save(existingBeneficiary);
 
       // Mise à jour de l'entreprise
       if (step2) {
@@ -311,6 +358,25 @@ export class BeneficiariesService {
 
         if (step2.companyExists === 'yes') {
           const companyRepo = queryRunner.manager.getRepository(Company);
+          const addressRepo = queryRunner.manager.getRepository(Address);
+
+          // Gestion de l'adresse de l'entreprise
+          let companyAddressId = null;
+          if (
+            step2.companyProvinceId ||
+            step2.companyCommuneId ||
+            step2.companyNeighborhood ||
+            step2.companyZone
+          ) {
+            const address = addressRepo.create({
+              provinceId: step2.companyProvinceId,
+              communeId: step2.companyCommuneId,
+              neighborhood: step2.companyNeighborhood,
+              street: step2.companyZone,
+            });
+            const savedAddress = await queryRunner.manager.save(address);
+            companyAddressId = savedAddress.id as any;
+          }
 
           if (beneficiary?.company) {
             // Mise à jour de l'entreprise existante
@@ -337,6 +403,54 @@ export class BeneficiariesService {
               beneficiary.company.hasPositiveClimateImpact;
             beneficiary.company.revenueYearN1 =
               step2.annualRevenue ?? beneficiary.company.revenueYearN1;
+            beneficiary.company.companyType =
+              step2.companyStatus ?? beneficiary.company.companyType;
+
+            beneficiary.company.legalStatus =
+              step2.legalStatus ?? beneficiary.company.legalStatus;
+            beneficiary.company.legalStatusOther =
+              step2.legalStatusOther ?? beneficiary.company.legalStatusOther;
+            beneficiary.company.affiliatedToCGA =
+              step2.affiliatedToCGA ?? beneficiary.company.affiliatedToCGA;
+            beneficiary.company.femaleEmployees =
+              step2.femaleEmployees ?? beneficiary.company.femaleEmployees;
+            beneficiary.company.maleEmployees =
+              step2.maleEmployees ?? beneficiary.company.maleEmployees;
+            beneficiary.company.refugeeEmployees =
+              step2.refugeeEmployees ?? beneficiary.company.refugeeEmployees;
+            beneficiary.company.batwaEmployees =
+              step2.batwaEmployees ?? beneficiary.company.batwaEmployees;
+            beneficiary.company.disabledEmployees =
+              step2.disabledEmployees ?? beneficiary.company.disabledEmployees;
+            beneficiary.company.associatesCount =
+              step2.associatesCount ?? beneficiary.company.associatesCount;
+            beneficiary.company.associatesCountOther =
+              step2.associatesCountOther ??
+              beneficiary.company.associatesCountOther;
+            beneficiary.company.femalePartners =
+              step2.femalePartners ?? beneficiary.company.femalePartners;
+            beneficiary.company.malePartners =
+              step2.malePartners ?? beneficiary.company.malePartners;
+            beneficiary.company.refugeePartners =
+              step2.refugeePartners ?? beneficiary.company.refugeePartners;
+            beneficiary.company.batwaPartners =
+              step2.batwaPartners ?? beneficiary.company.batwaPartners;
+            beneficiary.company.disabledPartners =
+              step2.disabledPartners ?? beneficiary.company.disabledPartners;
+            beneficiary.company.hasBankAccount =
+              step2.hasBankAccount ?? beneficiary.company.hasBankAccount;
+            beneficiary.company.hasBankCredit =
+              step2.hasBankCredit ?? beneficiary.company.hasBankCredit;
+            beneficiary.company.bankCreditAmount =
+              step2.bankCreditAmount ?? beneficiary.company.bankCreditAmount;
+            beneficiary.company.companyPhone =
+              step2.companyPhone ?? beneficiary.company.companyPhone;
+            beneficiary.company.companyEmail =
+              step2.companyEmail ?? beneficiary.company.companyEmail;
+
+            if (companyAddressId) {
+              beneficiary.company.addressId = companyAddressId;
+            }
 
             await queryRunner.manager.save(beneficiary.company);
           } else if (beneficiary) {
@@ -357,18 +471,37 @@ export class BeneficiariesService {
               isLedByRefugee: step2.isRefugeeLed || false,
               hasPositiveClimateImpact: step2.hasClimateImpact || false,
               revenueYearN1: step2.annualRevenue || 0,
-              headquartersAddressId: savedUser.primaryAddressId,
+              companyType: step2.companyStatus,
+              addressId: companyAddressId,
               statusId: await this.getStatusId(
                 'PENDING_VALIDATION',
                 'COMPANY',
                 queryRunner,
               ),
-              companyType:
-                step2.companyStatus && step2.companyStatus !== 'project'
-                  ? step2.companyStatus
-                  : null,
-            });
-            const savedCompany = await queryRunner.manager.save(company);
+
+              // Nouveaux champs
+              legalStatus: step2.legalStatus,
+              legalStatusOther: step2.legalStatusOther,
+              affiliatedToCGA: step2.affiliatedToCGA,
+              femaleEmployees: step2.femaleEmployees || 0,
+              maleEmployees: step2.maleEmployees || 0,
+              refugeeEmployees: step2.refugeeEmployees || 0,
+              batwaEmployees: step2.batwaEmployees || 0,
+              disabledEmployees: step2.disabledEmployees || 0,
+              associatesCount: step2.associatesCount,
+              associatesCountOther: step2.associatesCountOther,
+              femalePartners: step2.femalePartners || 0,
+              malePartners: step2.malePartners || 0,
+              refugeePartners: step2.refugeePartners || 0,
+              batwaPartners: step2.batwaPartners || 0,
+              disabledPartners: step2.disabledPartners || 0,
+              hasBankAccount: step2.hasBankAccount,
+              hasBankCredit: step2.hasBankCredit,
+              bankCreditAmount: step2.bankCreditAmount,
+              companyPhone: step2.companyPhone,
+              companyEmail: step2.companyEmail,
+            } as any);
+            const savedCompany: any = await queryRunner.manager.save(company);
             beneficiary.companyId = savedCompany.id;
             // await queryRunner.manager.save(beneficiary);
           }
@@ -384,6 +517,17 @@ export class BeneficiariesService {
 
         if (step3?.isProfileCompleted) {
           beneficiary.isProfileComplete = step3.isProfileCompleted;
+
+          const nextNumber = beneficiary.id;
+          // Limiter à 99999 maximum
+          if (nextNumber > 99999) {
+            throw new Error(
+              'Limite de numéros de bénéficiaires atteinte (99999)'
+            );
+          }
+
+          // Formater sur 5 chiffres avec des zéros devant
+          beneficiary.applicationCode = nextNumber.toString().padStart(5, '0');
         }
 
         await queryRunner.manager.save(beneficiary);
@@ -408,6 +552,56 @@ export class BeneficiariesService {
           savedUser.cguAcceptedAt = new Date();
           await queryRunner.manager.save(savedUser);
         }
+
+        // Mise à jour des champs projet dans beneficiary
+        existingBeneficiary.projectTitle =
+          step3.projectTitle ?? existingBeneficiary.projectTitle;
+        existingBeneficiary.projectObjective =
+          step3.projectObjective ?? existingBeneficiary.projectObjective;
+        existingBeneficiary.projectSectors =
+          step3.projectSectors ?? existingBeneficiary.projectSectors;
+        existingBeneficiary.otherSector =
+          step3.otherSector ?? existingBeneficiary.otherSector;
+        existingBeneficiary.mainActivities =
+          step3.mainActivities ?? existingBeneficiary.mainActivities;
+        existingBeneficiary.productsServices =
+          step3.productsServices ?? existingBeneficiary.productsServices;
+        existingBeneficiary.businessIdea =
+          step3.businessIdea ?? existingBeneficiary.businessIdea;
+        existingBeneficiary.targetClients =
+          step3.targetClients ?? existingBeneficiary.targetClients;
+        existingBeneficiary.clientScope =
+          step3.clientScope ?? existingBeneficiary.clientScope;
+        existingBeneficiary.hasCompetitors =
+          step3.hasCompetitors ?? existingBeneficiary.hasCompetitors;
+        existingBeneficiary.competitorNames =
+          step3.competitorNames ?? existingBeneficiary.competitorNames;
+        existingBeneficiary.plannedEmployeesFemale =
+          step3.plannedEmployeesFemale ??
+          existingBeneficiary.plannedEmployeesFemale;
+        existingBeneficiary.plannedEmployeesMale =
+          step3.plannedEmployeesMale ??
+          existingBeneficiary.plannedEmployeesMale;
+        existingBeneficiary.plannedPermanentEmployees =
+          step3.plannedPermanentEmployees ??
+          existingBeneficiary.plannedPermanentEmployees;
+        existingBeneficiary.isNewIdea =
+          step3.isNewIdea ?? existingBeneficiary.isNewIdea;
+        existingBeneficiary.climateActions =
+          step3.climateActions ?? existingBeneficiary.climateActions;
+        existingBeneficiary.inclusionActions =
+          step3.inclusionActions ?? existingBeneficiary.inclusionActions;
+        existingBeneficiary.hasEstimatedCost =
+          step3.hasEstimatedCost ?? existingBeneficiary.hasEstimatedCost;
+        existingBeneficiary.totalProjectCost =
+          step3.totalProjectCost ?? existingBeneficiary.totalProjectCost;
+        existingBeneficiary.requestedSubsidyAmount =
+          step3.requestedSubsidyAmount ??
+          existingBeneficiary.requestedSubsidyAmount;
+        existingBeneficiary.mainExpenses =
+          step3.mainExpenses ?? existingBeneficiary.mainExpenses;
+
+        await queryRunner.manager.save(existingBeneficiary);
       }
 
       // Commit transaction
@@ -416,15 +610,13 @@ export class BeneficiariesService {
       // Journalisation
       this.logger.log(`Beneficiary ${beneficiaryId} updated successfully`);
 
-      const oldPercentage = existingBeneficiary.profileCompletionPercentage;
-
       const percentage =
         await this.profileCompletionService.calculateAndUpdateCompletion(
           parseInt(beneficiaryId),
         );
 
       // === ENVOI DE L'EMAIL SI 100% ET QUE C'EST LA PREMIÈRE FOIS ===
-      if (percentage === 100 && oldPercentage < 100) {
+      if (step3?.isProfileCompleted) {
         try {
           this.logger.log(
             `🎉 Profil complet à 100% pour ${user.email}. Envoi de l'email de confirmation...`,
@@ -437,6 +629,7 @@ export class BeneficiariesService {
             lastName: user.lastName,
             email: user.email,
             phoneNumber: user.phoneNumber,
+            code: existingBeneficiary.applicationCode,
           };
 
           // Envoyer l'email de confirmation

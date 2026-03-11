@@ -300,6 +300,7 @@ export class NotificationsService {
         fullName: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
         email: user.email,
         telephone: user.phoneNumber || '',
+        code: user.code || '',
         dateEnregistrement: this.emailTemplates.formatDate(new Date()),
         datePreselection: datePreselection || defaultPreselection,
         dateFormation: dateFormation || defaultFormation,

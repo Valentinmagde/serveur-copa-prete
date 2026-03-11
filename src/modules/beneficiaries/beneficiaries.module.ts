@@ -12,6 +12,7 @@ import { ProfileCompletionService } from './profile-completion.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { Notification } from '../notifications/entities/notification.entity';
+import { Document } from '../documents/entities/document.entity';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { Notification } from '../notifications/entities/notification.entity';
       Company,
       Status,
       Notification,
+      Document,
     ]),
   ],
   controllers: [BeneficiariesController],

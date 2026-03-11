@@ -7,6 +7,7 @@ import {
   ManyToOne,
   JoinColumn,
   OneToMany,
+  OneToOne,
 } from 'typeorm';
 import { Address } from '../../reference/entities/address.entity';
 import { LegalForm } from '../../reference/entities/legal-form.entity';
@@ -153,6 +154,73 @@ export class Company {
 
   @OneToMany(() => Beneficiary, (beneficiary) => beneficiary.company)
   beneficiaries: Beneficiary[];
+
+  @Column({ name: 'legal_status', nullable: true })
+  legalStatus?: string;
+
+  @Column({ name: 'legal_status_other', nullable: true })
+  legalStatusOther?: string;
+
+  @Column({ name: 'affiliated_to_cga', nullable: true })
+  affiliatedToCGA?: boolean;
+
+  @Column({ name: 'refugee_employees', default: 0 })
+  refugeeEmployees: number;
+
+  @Column({ name: 'batwa_employees', default: 0 })
+  batwaEmployees: number;
+
+  @Column({ name: 'disabled_employees', default: 0 })
+  disabledEmployees: number;
+
+  @Column({ name: 'associates_count', nullable: true })
+  associatesCount?: string;
+
+  @Column({ name: 'associates_count_other', nullable: true })
+  associatesCountOther?: string;
+
+  @Column({ name: 'female_partners', default: 0 })
+  femalePartners: number;
+
+  @Column({ name: 'male_partners', default: 0 })
+  malePartners: number;
+
+  @Column({ name: 'refugee_partners', default: 0 })
+  refugeePartners: number;
+
+  @Column({ name: 'batwa_partners', default: 0 })
+  batwaPartners: number;
+
+  @Column({ name: 'disabled_partners', default: 0 })
+  disabledPartners: number;
+
+  @Column({ name: 'has_bank_account', nullable: true })
+  hasBankAccount?: boolean;
+
+  @Column({ name: 'has_bank_credit', nullable: true })
+  hasBankCredit?: boolean;
+
+  @Column({
+    name: 'bank_credit_amount',
+    type: 'decimal',
+    precision: 15,
+    scale: 2,
+    nullable: true,
+  })
+  bankCreditAmount?: number;
+
+  @Column({ name: 'company_phone', nullable: true })
+  companyPhone?: string;
+
+  @Column({ name: 'company_email', nullable: true })
+  companyEmail?: string;
+
+  @Column({ name: 'address_id', nullable: true })
+  addressId: number;
+
+  @OneToOne(() => Address)
+  @JoinColumn({ name: 'address_id' })
+  address: Address;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

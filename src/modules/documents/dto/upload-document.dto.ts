@@ -1,13 +1,50 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsInt, IsOptional, IsString } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsIn, IsInt, IsOptional } from 'class-validator';
 
 export class UploadDocumentDto {
-  @ApiProperty()
+  @ApiProperty({ description: 'ID du bénéficiaire' })
+  @Type(() => Number)
+  @IsInt()
+  entityId: number;
+
+  @ApiProperty({ description: "Type d'entité", default: 'beneficiary' })
+  @IsOptional()
+  @IsIn(['beneficiary', 'company', 'businessPlan'])
+  entityType?: string = 'beneficiary';
+
+  @ApiProperty({
+    description: 'Clé du document',
+    enum: [
+      'idCard',
+      'criminalRecord',
+      'managerAct',
+      'commerceRegister',
+      'bankStatements',
+      'communalAttestation',
+    ],
+  })
+  @IsIn([
+    'idCard',
+    'criminalRecord',
+    'managerAct',
+    'commerceRegister',
+    'bankStatements',
+    'communalAttestation',
+  ])
+  documentKey: string;
+
+  @ApiProperty({ description: 'Type de document (ID du document type)' })
+  @Type(() => Number)
   @IsInt()
   documentTypeId: number;
 
-  @ApiProperty({ required: false })
+  @ApiProperty({
+    description: 'Étape du formulaire',
+    enum: ['STEP1', 'STEP2', 'STEP3', 'STEP4'],
+    required: false,
+  })
   @IsOptional()
-  @IsString()
-  description?: string;
+  @IsIn(['STEP1', 'STEP2', 'STEP3', 'STEP4'])
+  formStep?: string;
 }

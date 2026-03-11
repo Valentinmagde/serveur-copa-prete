@@ -192,7 +192,7 @@ export class EmailTemplatesService {
     html: string;
     text: string;
   } {
-    const subject = `Profil entrepreneur enregistré – COPA ${data.annee || '2026'}`;
+    const subject = `Candidature reçue - N° ${data.code || '00001'}`;
 
     const html = `
     <!DOCTYPE html>
@@ -264,8 +264,9 @@ export class EmailTemplatesService {
           <p>Bonjour <strong>${data.firstName || ''} ${data.lastName || ''}</strong>,</p>
           
           <p>Nous sommes ravis de vous confirmer que votre <strong>profil d'entrepreneur</strong> a bien été enregistré sur la plateforme du Concours de Plans d'Affaires (COPA).</p>
-          
+
           <div class="info-box">
+            <div class="info-row"><span class="label">Code :</span> ${data.code || ''}</div>
             <div class="info-row"><span class="label">Date d'enregistrement :</span> ${data.dateEnregistrement || new Date().toLocaleDateString('fr-FR')}</div>
             <div class="info-row"><span class="label">Statut :</span> <span style="color: #1F4E79; font-weight: bold;">En attente de pré-sélection</span></div>
             <div class="info-row"><span class="label">Email :</span> ${data.email || ''}</div>

@@ -25,6 +25,18 @@ export class Document {
   @JoinColumn({ name: 'document_type_id' })
   documentType: DocumentType;
 
+  @Column({ name: 'document_key', nullable: true })
+  documentKey: string;
+
+  @Column({ name: 'form_step', nullable: true })
+  formStep: string;
+
+  @Column({ name: 'entity_id', nullable: true })
+  entityId: number;
+
+  @Column({ name: 'entity_type', nullable: true, default: 'beneficiary' })
+  entityType: string;
+
   @Column({ name: 'original_filename' })
   originalFilename: string;
 

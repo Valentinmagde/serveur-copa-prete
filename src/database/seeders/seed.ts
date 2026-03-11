@@ -142,14 +142,30 @@ async function seed() {
     if (documentTypesExist[0].count === '0') {
       await queryRunner.manager.query(`
         INSERT INTO document_types (name, description, is_required_for_company, is_required_for_business_plan, is_required_for_beneficiary, allowed_formats, max_size_mb) VALUES
-        ('Identity Document', 'National ID, Passport, or Refugee Card', true, false, true, '["pdf", "jpg", "png"]'::jsonb, 5),
-        ('Company Registration', 'RCCM or equivalent', true, false, true, '["pdf"]'::jsonb, 10),
-        ('Tax Identification', 'NIF or equivalent', true, false, false, '["pdf"]'::jsonb, 5),
-        ('Business Plan Document', 'Full business plan document', false, true, false, '["pdf", "doc", "docx"]'::jsonb, 20),
-        ('Financial Statements', 'Financial statements for last 2 years', true, true, false, '["pdf", "xls", "xlsx"]'::jsonb, 10),
-        ('Photo', 'Company or product photos', false, true, false, '["jpg", "png"]'::jsonb, 5),
-        ('Certificate', 'Training certificate', false, false, true, '["pdf"]'::jsonb, 5),
-        ('Subvention Agreement', 'Signed subvention agreement', false, false, true, '["pdf"]'::jsonb, 10);
+        -- Documents d'identité de base
+        ('Carte d''identité / Passeport', 'Carte d''identité nationale, passeport ou carte de réfugié', true, false, true, '["pdf", "jpg", "png"]'::jsonb, 5),
+        
+        -- Documents pour entreprises formelles
+        ('Casier judiciaire', 'Casier judiciaire datant de moins de 3 mois', true, false, true, '["pdf"]'::jsonb, 5),
+        ('Acte de nomination du gérant', 'Acte de nomination si différent du RC', true, false, false, '["pdf"]'::jsonb, 5),
+        ('Registre de commerce (RCCM)', 'Registre de commerce et du crédit mobilier', true, false, false, '["pdf"]'::jsonb, 10),
+        ('NIF', 'Numéro d''identification fiscale', true, false, false, '["pdf"]'::jsonb, 5),
+        ('Relevés bancaires', 'Relevés bancaires des 6 derniers mois', true, true, false, '["pdf"]'::jsonb, 10),
+        
+        -- Documents pour entreprises informelles
+        ('Attestation communale', 'Attestation de reconnaissance communale ou zonale (entreprise d''au moins 1 an)', true, false, false, '["pdf"]'::jsonb, 5),
+        
+        -- Documents projet
+        ('Plan d''affaires', 'Document complet du plan d''affaires', false, true, false, '["pdf", "doc", "docx"]'::jsonb, 20),
+        ('Devis', 'Devis pour les équipements demandés', false, true, false, '["pdf"]'::jsonb, 5),
+        
+        -- Photos
+        ('Photo d''identité', 'Photo d''identité du représentant', false, false, true, '["jpg", "png"]'::jsonb, 2),
+        ('Photos du projet', 'Photos de l''entreprise ou des produits', false, true, false, '["jpg", "png"]'::jsonb, 10),
+        
+        -- Documents administratifs
+        ('Convention de subvention', 'Convention de subvention signée', false, false, true, '["pdf"]'::jsonb, 10),
+        ('Attestation de formation', 'Attestation de formation COPA', false, false, true, '["pdf"]'::jsonb, 5);
       `);
       console.log('Document types seeded');
     }

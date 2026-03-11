@@ -10,6 +10,8 @@ import {
   ValidateIf,
   IsNumber,
   Matches,
+  IsBoolean,
+  IsEmail,
 } from 'class-validator';
 
 export class UpdateStep2Dto {
@@ -19,7 +21,7 @@ export class UpdateStep2Dto {
     example: 'yes',
   })
   @IsIn(['yes', 'no'])
-  companyExists: string; // 'yes' ou 'no'
+  companyExists: string;
 
   // Champs conditionnels - UNIQUEMENT si companyExists = 'yes'
   @ApiProperty({ required: false, example: 'ABC SARL' })
@@ -77,20 +79,164 @@ export class UpdateStep2Dto {
   @Min(0)
   annualRevenue?: number;
 
-  // Informations complémentaires pour la fenêtre de candidature
   @ApiProperty({
     description: "Type d'entreprise",
-    enum: ['formal', 'informal'],
+    enum: ['formal', 'informal', 'project'],
     example: 'formal',
   })
-  @IsIn(['formal', 'informal'])
-  companyType: string; // 'formal' ou 'informal'
+  @IsIn(['formal', 'informal', 'project'])
+  companyStatus: string;
 
+  // Adresse de l'entreprise (si différente)
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  companyNeighborhood?: string; // Nouveau champ
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  companyZone?: string; // Nouveau champ
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsInt()
+  companyProvinceId?: number; // Nouveau champ
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsInt()
+  companyCommuneId?: number; // Nouveau champ
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  companyPhone?: string; // Nouveau champ
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  @IsEmail()
+  companyEmail?: string; // Nouveau champ
+
+  // Statut juridique (pour formelles)
+  @ApiProperty({
+    enum: ['snc', 'scs', 'sprl', 'su', 'sa', 'coop', 'other'],
+    required: false,
+  })
+  @IsOptional()
+  @IsIn(['snc', 'scs', 'sprl', 'su', 'sa', 'coop', 'other'])
+  legalStatus?: string; // Nouveau champ
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  legalStatusOther?: string; // Nouveau champ
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsBoolean()
+  affiliatedToCGA?: boolean; // Nouveau champ - Affilié à un Centre de Gestion Agréé
+
+  // Effectifs détaillés
+  @ApiProperty({ required: false, default: 0 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  femaleEmployees?: number; // Nouveau champ
+
+  @ApiProperty({ required: false, default: 0 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  maleEmployees?: number; // Nouveau champ
+
+  @ApiProperty({ required: false, default: 0 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  refugeeEmployees?: number; // Nouveau champ
+
+  @ApiProperty({ required: false, default: 0 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  batwaEmployees?: number; // Nouveau champ
+
+  @ApiProperty({ required: false, default: 0 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  disabledEmployees?: number; // Nouveau champ
+
+  // Associés
+  @ApiProperty({
+    enum: ['solo', '2', '3', 'other'],
+    required: false,
+  })
+  @IsOptional()
+  @IsIn(['solo', '2', '3', 'other'])
+  associatesCount?: string; // Nouveau champ
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  associatesCountOther?: string; // Nouveau champ
+
+  @ApiProperty({ required: false, default: 0 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  femalePartners?: number; // Nouveau champ
+
+  @ApiProperty({ required: false, default: 0 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  malePartners?: number; // Nouveau champ
+
+  @ApiProperty({ required: false, default: 0 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  refugeePartners?: number; // Nouveau champ
+
+  @ApiProperty({ required: false, default: 0 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  batwaPartners?: number; // Nouveau champ
+
+  @ApiProperty({ required: false, default: 0 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  disabledPartners?: number; // Nouveau champ
+
+  // Informations bancaires
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsBoolean()
+  hasBankAccount?: boolean; // Nouveau champ
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsBoolean()
+  hasBankCredit?: boolean; // Nouveau champ
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  bankCreditAmount?: number; // Nouveau champ
+
+  // Indicateurs (existants)
   @ApiProperty({
     description: 'Entreprise dirigée par une femme ?',
     default: false,
   })
   @IsOptional()
+  @IsBoolean()
   isWomanLed?: boolean;
 
   @ApiProperty({
@@ -98,6 +244,7 @@ export class UpdateStep2Dto {
     default: false,
   })
   @IsOptional()
+  @IsBoolean()
   isRefugeeLed?: boolean;
 
   @ApiProperty({
@@ -105,13 +252,6 @@ export class UpdateStep2Dto {
     default: false,
   })
   @IsOptional()
+  @IsBoolean()
   hasClimateImpact?: boolean;
-
-  @ApiProperty({
-    description: 'Statut de la société',
-    enum: ['formal', 'informal', 'project'],
-    example: 'formal',
-  })
-  @IsIn(['formal', 'informal', 'project'])
-  companyStatus?: string;
 }

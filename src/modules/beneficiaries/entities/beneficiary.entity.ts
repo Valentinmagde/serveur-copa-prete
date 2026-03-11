@@ -152,6 +152,130 @@ export class Beneficiary {
   })
   isProfileComplete: boolean;
 
+  @Column({ nullable: true })
+  position?: string;
+
+  @Column({ name: 'marital_status', nullable: true })
+  maritalStatus?: string;
+
+  @Column({ name: 'education_level', nullable: true })
+  educationLevel?: string;
+
+  @Column({ name: 'is_public_servant', nullable: true })
+  isPublicServant?: boolean;
+
+  @Column({ name: 'is_relative_of_public_servant', nullable: true })
+  isRelativeOfPublicServant?: boolean;
+
+  @Column({ name: 'is_public_intern', nullable: true })
+  isPublicIntern?: boolean;
+
+  @Column({ name: 'is_relative_of_public_intern', nullable: true })
+  isRelativeOfPublicIntern?: boolean;
+
+  @Column({ name: 'was_high_officer', nullable: true })
+  wasHighOfficer?: boolean;
+
+  @Column({ name: 'is_relative_of_high_officer', nullable: true })
+  isRelativeOfHighOfficer?: boolean;
+
+  @Column({ name: 'has_project_link', nullable: true })
+  hasProjectLink?: boolean;
+
+  @Column({ name: 'is_direct_supplier_to_project', nullable: true })
+  isDirectSupplierToProject?: boolean;
+
+  @Column({ name: 'has_previous_grant', nullable: true })
+  hasPreviousGrant?: boolean;
+
+  @Column({ name: 'previous_grant_details', type: 'text', nullable: true })
+  previousGrantDetails?: string;
+
+  @Column({ name: 'project_title', nullable: true })
+  projectTitle?: string;
+
+  @Column({ name: 'project_objective', type: 'text', nullable: true })
+  projectObjective?: string;
+
+  @Column({ name: 'project_sectors', type: 'jsonb', nullable: true })
+  projectSectors?: string[];
+
+  @Column({ name: 'other_sector', nullable: true })
+  otherSector?: string;
+
+  @Column({ name: 'main_activities', type: 'text', nullable: true })
+  mainActivities?: string;
+
+  @Column({ name: 'products_services', type: 'text', nullable: true })
+  productsServices?: string;
+
+  @Column({ name: 'business_idea', type: 'text', nullable: true })
+  businessIdea?: string;
+
+  @Column({ name: 'target_clients', type: 'text', nullable: true })
+  targetClients?: string;
+
+  @Column({ name: 'client_scope', type: 'jsonb', nullable: true })
+  clientScope?: string[];
+
+  @Column({ name: 'has_competitors', nullable: true })
+  hasCompetitors?: boolean;
+
+  @Column({ name: 'competitor_names', type: 'text', nullable: true })
+  competitorNames?: string;
+
+  @Column({ name: 'planned_employees_female', default: 0 })
+  plannedEmployeesFemale: number;
+
+  @Column({ name: 'planned_employees_male', default: 0 })
+  plannedEmployeesMale: number;
+
+  @Column({ name: 'planned_permanent_employees', default: 0 })
+  plannedPermanentEmployees: number;
+
+  @Column({ name: 'is_new_idea', nullable: true })
+  isNewIdea?: boolean;
+
+  @Column({ name: 'climate_actions', type: 'text', nullable: true })
+  climateActions?: string;
+
+  @Column({ name: 'inclusion_actions', type: 'text', nullable: true })
+  inclusionActions?: string;
+
+  @Column({ name: 'has_estimated_cost', nullable: true })
+  hasEstimatedCost?: boolean;
+
+  @Column({
+    name: 'total_project_cost',
+    type: 'decimal',
+    precision: 15,
+    scale: 2,
+    nullable: true,
+  })
+  totalProjectCost?: number;
+
+  @Column({
+    name: 'requested_subsidy_amount',
+    type: 'decimal',
+    precision: 15,
+    scale: 2,
+    nullable: true,
+  })
+  requestedSubsidyAmount?: number;
+
+  @Column({ name: 'main_expenses', type: 'text', nullable: true })
+  mainExpenses?: string;
+
+  @Column({ name: 'application_code', unique: true, nullable: true })
+  applicationCode: string;
+
+  @Column({
+    name: 'application_submitted_at',
+    type: 'timestamp',
+    nullable: true,
+  })
+  applicationSubmittedAt: Date;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

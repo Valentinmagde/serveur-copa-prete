@@ -87,11 +87,11 @@ export class DocumentsController {
     return this.documentsService.getDocumentTypes(requiredFor);
   }
 
-  @Get('entity/:entityType/:entityId')
-  async getDocumentsByEntity(
-    @Param('entityType') entityType: string,
-    @Param('entityId') entityId: string,
-  ) {
-    return this.documentsService.getDocumentsByEntity(entityType, +entityId);
-  }
+  // @Get('entity/:entityType/:entityId')
+  // async getDocumentsByEntity(
+  //   @Param('entityType') entityType: string,
+  //   @Param('entityId') entityId: string,
+  // ) {
+  //   return this.documentsService.getDocumentsByEntity(entityType, +entityId);
+  // }
 }
