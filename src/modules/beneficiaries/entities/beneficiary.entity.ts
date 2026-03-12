@@ -224,13 +224,13 @@ export class Beneficiary {
   @Column({ name: 'competitor_names', type: 'text', nullable: true })
   competitorNames?: string;
 
-  @Column({ name: 'planned_employees_female', default: 0 })
+  @Column({ name: 'planned_employees_female', nullable: true })
   plannedEmployeesFemale: number;
 
-  @Column({ name: 'planned_employees_male', default: 0 })
+  @Column({ name: 'planned_employees_male', nullable: true })
   plannedEmployeesMale: number;
 
-  @Column({ name: 'planned_permanent_employees', default: 0 })
+  @Column({ name: 'planned_permanent_employees', nullable: true })
   plannedPermanentEmployees: number;
 
   @Column({ name: 'is_new_idea', nullable: true })
