@@ -24,6 +24,11 @@ export enum NotificationType {
   ALERT = 'ALERT',
   INFORMATION = 'INFORMATION',
   PROMOTION = 'PROMOTION',
+  CONTACT = 'CONTACT',
+  INFO = 'INFO',
+  SUCCESS = 'SUCCESS',
+  ERROR = 'ERROR',
+  WARNING = 'WARNING',
 }
 
 export class CreateNotificationDto {

@@ -27,6 +27,7 @@ import {
 } from './templates/email-templates.service';
 import { ConfigService } from '@nestjs/config';
 import { activitiesUrl } from 'twilio/lib/jwt/taskrouter/util';
+import { User } from 'aws-sdk/clients/budgets';
 
 @Injectable()
 export class NotificationsService {
@@ -98,7 +99,6 @@ export class NotificationsService {
 
       switch (dto.channel) {
         case NotificationChannel.EMAIL:
-          // Utilisation de SES via TwilioService
           deliveryResult = await this.twilioService.sendEmail({
             to: user.email,
             subject: dto.title,
@@ -159,6 +159,165 @@ export class NotificationsService {
       };
       await this.notificationRepository.save(notification);
       throw error;
+    }
+  }
+
+  /**
+   * Envoie des notifications pour un formulaire de contact
+   * Utilise les templates de EmailTemplatesService
+   */
+  async sendContactNotification(
+    contactData: {
+      name: string;
+      email: string;
+      phone?: string;
+      subject: string;
+      message: string;
+    },
+    metadata?: {
+      ip?: string;
+      userAgent?: string;
+      userId?: number;
+    },
+  ): Promise<{
+    success: boolean;
+    supportNotificationId?: number;
+    userNotificationId?: number;
+    error?: string;
+  }> {
+    try {
+      this.logger.log(`Envoi notification de contact de ${contactData.email}`);
+
+      const supportEmail =
+        this.configService.get('SUPPORT_EMAIL') || 'contact@copa-prete.bi';
+
+      // Vérifier si l'utilisateur existe
+      let user: any;
+      if (metadata?.userId) {
+        user = await this.usersService.findById(metadata.userId);
+      } else {
+        user = await this.usersService.findByEmail(contactData.email);
+      }
+
+      // ========== 1. NOTIFICATION À L'ÉQUIPE SUPPORT ==========
+
+      // Utiliser le template pour le support
+      const adminTemplate = this.emailTemplates.getContactNotification({
+        ...contactData,
+        metadata,
+      });
+
+      // Envoyer l'email au support via Twilio
+      const adminResult = await this.twilioService.sendEmail({
+        to: supportEmail,
+        subject: adminTemplate.subject,
+        html: adminTemplate.html,
+        text: adminTemplate.text,
+      });
+
+      // Créer la notification pour le support
+      const supportNotification = this.notificationRepository.create({
+        recipientUserId: null,
+        channel: NotificationChannel.EMAIL,
+        notificationType: NotificationType.INFO,
+        title: adminTemplate.subject,
+        content: adminTemplate.html,
+        context: {
+          emailType: 'contact',
+          messageId: adminResult.messageId,
+          contactData,
+          metadata,
+        },
+        isSent: true,
+        sentAt: new Date(),
+      });
+
+      const savedSupportNotification =
+        await this.notificationRepository.save(supportNotification);
+
+      // ========== 2. CONFIRMATION À L'UTILISATEUR ==========
+
+      let userNotification: any;
+      let savedUserNotification: any;
+
+      // N'envoyer la confirmation que si l'email n'est pas celui du support
+      if (contactData.email.toLowerCase() !== supportEmail.toLowerCase()) {
+        // Utiliser le template pour l'utilisateur
+        const userTemplate =
+          this.emailTemplates.getContactConfirmation(contactData);
+
+        // Envoyer l'email de confirmation à l'utilisateur
+        const userResult = await this.twilioService.sendEmail({
+          to: contactData.email,
+          subject: userTemplate.subject,
+          html: userTemplate.html,
+          text: userTemplate.text,
+        });
+
+        // Créer la notification pour l'utilisateur
+        userNotification = this.notificationRepository.create({
+          recipientUserId: user?.id || null,
+          channel: NotificationChannel.EMAIL,
+          notificationType: NotificationType.SUCCESS,
+          title: userTemplate.subject,
+          content: userTemplate.html,
+          context: {
+            emailType: 'contact_confirmation',
+            messageId: userResult.messageId,
+            contactData,
+            supportNotificationId: savedSupportNotification.id,
+          },
+          isSent: true,
+          sentAt: new Date(),
+        });
+
+        savedUserNotification =
+          await this.notificationRepository.save(userNotification);
+      }
+
+      // ========== 4. NOTIFICATION IN-APP POUR L'UTILISATEUR (SI CONNECTÉ) ==========
+
+      if (user) {
+        try {
+          const inAppNotification = this.notificationRepository.create({
+            recipientUserId: user.id,
+            channel: NotificationChannel.IN_APP,
+            notificationType: NotificationType.INFO,
+            title: 'Message envoyé',
+            content: `Votre message "${contactData.subject}" a bien été envoyé à l'équipe COPA.`,
+            context: {
+              type: 'contact_in_app',
+              contactId: savedSupportNotification.id,
+            },
+            isSent: true,
+            sentAt: new Date(),
+          });
+
+          await this.notificationRepository.save(inAppNotification);
+        } catch (inAppError) {
+          this.logger.error('Erreur création notification in-app:', inAppError);
+        }
+      }
+
+      this.logger.log(
+        `✅ Notifications de contact envoyées avec succès pour ${contactData.email}`,
+      );
+
+      return {
+        success: true,
+        supportNotificationId: savedSupportNotification.id,
+        userNotificationId: savedUserNotification?.id,
+      };
+    } catch (error) {
+      this.logger.error(
+        "❌ Erreur lors de l'envoi des notifications de contact:",
+        error,
+      );
+
+      return {
+        success: false,
+        error: error.message,
+      };
     }
   }
 
@@ -811,7 +970,9 @@ export class NotificationsService {
    */
   async resend(id: number): Promise<Notification> {
     const notification = await this.findOne(id);
-    const user = await this.usersService.findById(notification.recipientUserId);
+    const user = await this.usersService.findById(
+      notification.recipientUserId || 0,
+    );
 
     // Réinitialiser le statut
     notification.isSent = false;

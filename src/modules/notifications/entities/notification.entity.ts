@@ -18,8 +18,8 @@ export class Notification {
   @JoinColumn({ name: 'recipient_user_id' })
   recipient: User;
 
-  @Column({ name: 'recipient_user_id' })
-  recipientUserId: number;
+  @Column({ name: 'recipient_user_id', nullable: true })
+  recipientUserId: number | null;
 
   @Column({ nullable: true })
   channel: string;

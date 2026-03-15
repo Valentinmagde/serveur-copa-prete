@@ -12,6 +12,8 @@ import {
   HttpStatus,
   ParseIntPipe,
   DefaultValuePipe,
+  Req,
+  BadRequestException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -42,6 +44,34 @@ export class NotificationsController {
   constructor(private readonly notificationsService: NotificationsService) {}
 
   // ==================== ENDPOINTS PUBLICS ====================
+  @Post('contact')
+  @Public()
+  async submitContact(@Body() contactData: any, @Req() req: any) {
+    const result = await this.notificationsService.sendContactNotification(
+      {
+        name: contactData.name,
+        email: contactData.email,
+        phone: contactData.phone,
+        subject: contactData.subject,
+        message: contactData.message,
+      },
+      {
+        ip: req.ip,
+        userAgent: req.headers['user-agent'],
+        userId: req.user?.id,
+      },
+    );
+
+    if (!result.success) {
+      throw new BadRequestException("Erreur lors de l'envoi du message");
+    }
+
+    return {
+      success: true,
+      message: 'Message envoyé avec succès',
+      reference: result.supportNotificationId,
+    };
+  }
 
   //   @Public()
   //   @Post('webhook/sms')
@@ -136,13 +166,13 @@ export class NotificationsController {
   //     return this.notificationsService.getNotificationStats();
   //   }
 
-  //   @Post('admin/send')
-  //   @Roles('SUPER_ADMIN', 'ADMIN', 'COPA_MANAGER')
-  //   @ApiOperation({ summary: 'Envoyer une notification' })
-  //   @ApiResponse({ status: 201 })
-  //   async sendNotification(@Body() createDto: CreateNotificationDto) {
-  //     return this.notificationsService.sendNotification(createDto);
-  //   }
+  // @Post('send')
+  // @Roles('SUPER_ADMIN', 'ADMIN', 'COPA_MANAGER')
+  // @ApiOperation({ summary: 'Envoyer une notification' })
+  // @ApiResponse({ status: 201 })
+  // async sendNotification(@Body() createDto: CreateNotificationDto) {
+  //   return this.notificationsService.sendNotification(createDto);
+  // }
 
   //   @Post('admin/send/bulk')
   //   @Roles('SUPER_ADMIN', 'ADMIN')
@@ -269,7 +299,7 @@ export class NotificationsController {
   @Public()
   @Post('test/brevo')
   @ApiOperation({ summary: "Tester l'envoi d'email via Brevo" })
-   @ApiBody({
+  @ApiBody({
     schema: {
       type: 'object',
       properties: {

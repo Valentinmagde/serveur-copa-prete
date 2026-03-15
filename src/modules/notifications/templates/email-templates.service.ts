@@ -69,12 +69,15 @@ export class EmailTemplatesService {
   private readonly logger = new Logger(EmailTemplatesService.name);
   private readonly baseUrl: string;
   private readonly telephoneSupport: string;
+  private readonly supportEmail: string;
 
   constructor(private configService: ConfigService) {
     this.baseUrl =
       this.configService.get('APP_URL') || 'https://copa.prete.gov.bi';
     this.telephoneSupport =
       this.configService.get('SUPPORT_PHONE') || '+257XXXXXXXX';
+    this.supportEmail =
+      this.configService.get('SUPPORT_EMAIL') || 'support@copa-prete.bi';
   }
 
   // ==================== EMAILS TRANSACTIONNELS ====================
@@ -700,6 +703,345 @@ export class EmailTemplatesService {
         this.logger.warn(`Template SMS inconnu: ${templateType}`);
         return '';
     }
+  }
+
+  // Dans email-templates.service.ts, ajoutez ces méthodes
+
+  // ==================== TEMPLATES DE CONTACT ====================
+
+  /**
+   * Template: Notification pour l'équipe support (admin)
+   */
+  getContactNotification(data: {
+    name: string;
+    email: string;
+    phone?: string;
+    subject: string;
+    message: string;
+    category?: string;
+    metadata?: {
+      ip?: string;
+      userAgent?: string;
+      userId?: number;
+    };
+  }): {
+    subject: string;
+    html: string;
+    text: string;
+  } {
+    const appUrl = this.baseUrl;
+
+    const subject = `Nouveau message de contact: ${data.subject}`;
+
+    const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Nouveau message de contact</title>
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { 
+          background-color: #1F4E79'; 
+          color: white; 
+          padding: 20px; 
+          text-align: center;
+          border-radius: 8px 8px 0 0;
+        }
+        .urgent-badge {
+          background: #ffc107;
+          color: #000;
+          padding: 5px 15px;
+          border-radius: 20px;
+          font-size: 14px;
+          font-weight: bold;
+          margin-left: 10px;
+        }
+        .content { padding: 30px 20px; background-color: #f9f9f9; }
+        .info-table {
+          width: 100%;
+          border-collapse: collapse;
+          margin: 20px 0;
+          background: white;
+          border-radius: 8px;
+          overflow: hidden;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .info-table tr {
+          border-bottom: 1px solid #eee;
+        }
+        .info-table tr:last-child {
+          border-bottom: none;
+        }
+        .info-table td {
+          padding: 12px 15px;
+        }
+        .info-table td:first-child {
+          font-weight: bold;
+          width: 120px;
+          background-color: #f5f5f5;
+        }
+        .message-box {
+          background: white;
+          padding: 20px;
+          border-radius: 8px;
+          margin: 20px 0;
+          border-left: 4px solid #1F4E79';
+          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .metadata-box {
+          background: #e9ecef;
+          padding: 15px;
+          border-radius: 8px;
+          margin: 20px 0;
+          font-size: 12px;
+          color: #666;
+        }
+        .button {
+          display: inline-block;
+          padding: 12px 24px;
+          background-color: #1F4E79;
+          color: white !important;
+          text-decoration: none;
+          border-radius: 5px;
+          margin: 20px 0;
+        }
+        .footer {
+          margin-top: 30px;
+          padding: 20px;
+          font-size: 12px;
+          color: #666;
+          border-top: 1px solid #ddd;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>
+            Nouveau message de contact
+          </h1>
+        </div>
+        
+        <div class="content">
+          <table class="info-table">
+            <tr>
+              <td>Nom</td>
+              <td><strong>${data.name}</strong></td>
+            </tr>
+            <tr>
+              <td>Email</td>
+              <td><a href="mailto:${data.email}">${data.email}</a></td>
+            </tr>
+            ${
+              data.phone
+                ? `
+            <tr>
+              <td>Téléphone</td>
+              <td><a href="tel:${data.phone}">${data.phone}</a></td>
+            </tr>`
+                : ''
+            }
+            ${
+              data.category
+                ? `
+            <tr>
+              <td>Catégorie</td>
+              <td>${data.category}</td>
+            </tr>`
+                : ''
+            }
+            <tr>
+              <td>Sujet</td>
+              <td><strong>${data.subject}</strong></td>
+            </tr>
+          </table>
+          
+          <div class="message-box">
+            <h3 style="margin-top: 0; color: '#1F4E79';">Message</h3>
+            <p style="white-space: pre-wrap; line-height: 1.6;">${data.message.replace(/\n/g, '<br>')}</p>
+          </div>
+          
+          ${
+            data.metadata
+              ? `
+          <div class="metadata-box">
+            <p style="margin: 5px 0;"><strong>Métadonnées:</strong></p>
+            <p style="margin: 5px 0;">IP: ${data.metadata.ip || 'N/A'}</p>
+            <p style="margin: 5px 0;">User-Agent: ${data.metadata.userAgent || 'N/A'}</p>
+            ${data.metadata.userId ? `<p style="margin: 5px 0;">User ID: ${data.metadata.userId}</p>` : ''}
+            <p style="margin: 5px 0;">Date: ${new Date().toLocaleString('fr-FR')}</p>
+          </div>
+          `
+              : ''
+          }
+          
+          <div style="text-align: center;">
+            <a href="${appUrl}/admin/notifications" class="button">
+              Voir dans l'admin →
+            </a>
+          </div>
+        </div>
+        
+        <div class="footer">
+          <p>© ${new Date().getFullYear()} COPA - Concours de Plans d'Affaires du Burundi. Tous droits réservés.</p>
+          <p>Ce message est une notification automatique.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+    const text = `
+    NOUVEAU MESSAGE DE CONTACT
+    
+    Nom: ${data.name}
+    Email: ${data.email}
+    ${data.phone ? `Téléphone: ${data.phone}` : ''}
+    ${data.category ? `Catégorie: ${data.category}` : ''}
+    Sujet: ${data.subject}
+    
+    Message:
+    ${data.message}
+    
+    ${
+      data.metadata
+        ? `
+    Métadonnées:
+    IP: ${data.metadata.ip || 'N/A'}
+    User-Agent: ${data.metadata.userAgent || 'N/A'}
+    Date: ${new Date().toLocaleString('fr-FR')}
+    `
+        : ''
+    }
+    
+    Voir dans l'admin: ${appUrl}/admin/notifications
+  `;
+
+    return { subject, html, text };
+  }
+
+  /**
+   * Template: Confirmation pour l'utilisateur
+   */
+  getContactConfirmation(data: {
+    name: string;
+    email: string;
+    subject: string;
+    message: string;
+  }): {
+    subject: string;
+    html: string;
+    text: string;
+  } {
+    const subject = 'Nous avons reçu votre message - COPA';
+
+    const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Confirmation de contact</title>
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background-color: #28a745; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+        .content { padding: 30px 20px; background-color: #f9f9f9; }
+        .message-box {
+          background: white;
+          padding: 20px;
+          border-radius: 8px;
+          margin: 20px 0;
+          border-left: 4px solid #28a745;
+        }
+        .info-box {
+          background: white;
+          padding: 20px;
+          border-radius: 8px;
+          margin: 20px 0;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .contact-info {
+          background: #e9ecef;
+          padding: 15px;
+          border-radius: 8px;
+          margin: 20px 0;
+        }
+        .footer {
+          margin-top: 30px;
+          padding: 20px;
+          font-size: 12px;
+          color: #666;
+          border-top: 1px solid #ddd;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>Message envoyé avec succès</h1>
+        </div>
+        
+        <div class="content">
+          <p>Bonjour <strong>${data.name}</strong>,</p>
+          
+          <p>Nous vous remercions d'avoir contacté l'équipe COPA.</p>
+          
+          <div class="info-box">
+            <p style="margin: 0 0 10px 0;"><strong>Récapitulatif de votre message :</strong></p>
+            <p style="margin: 5px 0;"><strong>Sujet :</strong> ${data.subject}</p>
+          </div>
+          
+          <div class="message-box">
+            <p style="white-space: pre-wrap; margin: 0;">${data.message}</p>
+          </div>
+          
+          <p>Notre équipe traitera votre demande dans les plus brefs délais (généralement sous 24-48h).</p>
+          
+          <div class="contact-info">
+            <p style="margin: 0 0 10px 0;"><strong>Pour toute information complémentaire :</strong></p>
+            <p style="margin: 5px 0;"><a href="mailto:${this.supportEmail}">${this.supportEmail}</a></p>
+            <p style="margin: 5px 0;">${this.telephoneSupport}</p>
+          </div>
+        </div>
+        
+        <div class="footer">
+          <p>© ${new Date().getFullYear()} COPA - Concours de Plans d'Affaires du Burundi</p>
+          <p>Ce message est un accusé de réception automatique.</p>
+          <p>Merci de ne pas répondre à cet email.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+    const text = `
+    Message envoyé avec succès
+    
+    Bonjour ${data.name},
+    
+    Nous vous remercions d'avoir contacté l'équipe COPA.
+    
+    Récapitulatif de votre message :
+    Sujet : ${data.subject}
+    
+    Message :
+    ${data.message}
+    
+    Notre équipe traitera votre demande dans les plus brefs délais (généralement sous 24-48h).
+    
+    Pour toute information complémentaire :
+    Email : ${this.supportEmail}
+    Téléphone : ${this.telephoneSupport}
+    
+    © ${new Date().getFullYear()} COPA - Concours de Plans d'Affaires du Burundi
+    Ce message est un accusé de réception automatique.
+  `;
+
+    return { subject, html, text };
   }
 
   // ==================== MÉTHODES UTILITAIRES ====================
