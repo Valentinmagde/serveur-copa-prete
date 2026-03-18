@@ -2,7 +2,6 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ThrottlerModule } from '@nestjs/throttler';
-import { RedisModule } from 'nestjs-redis';
 
 // Configuration
 import appConfig from './config/app.config';
@@ -25,6 +24,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { DocumentsModule } from './modules/documents/documents.module';
 import { ReferenceModule } from './modules/reference/reference.module';
 import { AdminModule } from './modules/admin/admin.module';
+import { RedisModule } from '@nestjs-modules/ioredis';
 
 @Module({
   imports: [
@@ -55,13 +55,17 @@ import { AdminModule } from './modules/admin/admin.module';
     }),
 
     // Redis Cache
-    // RedisModule.forRootAsync({
-    //   imports: [ConfigModule],
-    //   useFactory: (configService: ConfigService) => ({
-    //     ...configService.get('redis'),
-    //   }),
-    //   inject: [ConfigService],
-    // }),
+    RedisModule.forRootAsync({
+      imports: [ConfigModule],
+      useFactory: (configService: ConfigService) => ({
+        type: 'single',
+        options: {
+          host: configService.get('REDIS_HOST'),
+          port: configService.get<number>('REDIS_PORT'),
+        },
+      }),
+      inject: [ConfigService],
+    }),
 
     // Application Modules
     AuthModule,

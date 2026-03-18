@@ -36,6 +36,7 @@ import { Role } from '../reference/entities/role.entity';
 import { UserRole } from '../users/entities/user-role.entity';
 import { Gender } from '../reference/entities/gender.entity';
 import { RegistrationMpmeDto } from './dto/register-mpme.dto';
+import { randomBytes } from 'crypto';
 
 @Injectable()
 export class AuthService {
@@ -50,6 +51,7 @@ export class AuthService {
     private readonly notificationsService: NotificationsService,
     @InjectRepository(User) private userRepo: Repository<User>,
     @InjectRepository(Company) private companyRepo: Repository<Company>,
+    @InjectRedis() private readonly redis: Redis,
     private dataSource: DataSource,
   ) {}
 
@@ -71,7 +73,9 @@ export class AuthService {
         userAgent,
         'User not found',
       );
-      throw new UnauthorizedException('Nom d\'utilisateur ou mot de passe incorrect');
+      throw new UnauthorizedException(
+        "Nom d'utilisateur ou mot de passe incorrect",
+      );
     }
 
     if (user.isBlocked) {
@@ -601,6 +605,95 @@ export class AuthService {
   }
 
   /**
+   * Valide un token de réinitialisation (version Redis)
+   */
+  async validateResetToken(token: string, email: string): Promise<boolean> {
+    try {
+      // Normaliser l'email
+      const normalizedEmail = email.toLowerCase().trim();
+
+      this.logger.debug(`Validation token pour email: ${normalizedEmail}`);
+
+      // 1. Vérifier d'abord dans Redis
+      if (this.redis) {
+        const tokenKey = `password_reset:${token}`;
+        const tokenData = await this.redis.get(tokenKey);
+
+        if (tokenData) {
+          try {
+            const { userId, email: tokenEmail, used } = JSON.parse(tokenData);
+
+            // Vérifier si déjà utilisé
+            if (used) {
+              this.logger.warn(
+                `Token déjà utilisé: ${token.substring(0, 8)}...`,
+              );
+              return false;
+            }
+
+            // Vérifier l'email
+            if (tokenEmail.toLowerCase() !== normalizedEmail) {
+              this.logger.warn(
+                `Email mismatch: ${tokenEmail} vs ${normalizedEmail}`,
+              );
+              return false;
+            }
+
+            this.logger.log(`Token Redis valide pour user ${userId}`);
+            return true;
+          } catch (parseError) {
+            this.logger.error('Erreur parsing tokenData Redis:', parseError);
+          }
+        } else {
+          this.logger.debug(
+            `Token non trouvé dans Redis: ${token.substring(0, 8)}...`,
+          );
+        }
+      }
+
+      // 2. Fallback: vérifier dans la base de données
+      this.logger.debug('Fallback vers vérification DB');
+      const user = await this.usersService.findByResetToken(token);
+
+      if (!user) {
+        this.logger.warn(
+          `Aucun utilisateur trouvé avec ce token: ${token.substring(0, 8)}...`,
+        );
+        return false;
+      }
+
+      this.logger.debug(`User trouvé: ${user.id}, email: ${user.email}`);
+
+      // Vérifier l'email
+      if (user.email.toLowerCase() !== normalizedEmail) {
+        this.logger.warn(
+          `Email mismatch DB: ${user.email} vs ${normalizedEmail}`,
+        );
+        return false;
+      }
+
+      // Vérifier si le compte est actif
+      if (!user.isActive || user.isBlocked) {
+        this.logger.warn(`Compte inactif/bloqué: ${user.id}`);
+        return false;
+      }
+
+      // Vérifier si le token a expiré
+      if (user.resetTokenExpiresAt && user.resetTokenExpiresAt < new Date()) {
+        this.logger.warn(
+          `Token expiré pour user ${user.id}, expiration: ${user.resetTokenExpiresAt}`,
+        );
+        return false;
+      }
+
+      this.logger.log(`Token DB valide pour user ${user.id}`);
+      return true;
+    } catch (error) {
+      this.logger.error('Erreur lors de la validation du token:', error);
+      return false;
+    }
+  }
+  /**
    * Renvoie un email de vérification
    */
   async resendVerification(email: string): Promise<void> {
@@ -709,43 +802,458 @@ export class AuthService {
     }
   }
 
+  // async forgotPassword(email: string): Promise<{ message: string }> {
+  //   const user = await this.usersService.findByEmail(email);
+
+  //   if (!user) {
+  //     // Return success even if user not found for security
+  //     return { message: 'If your email exists, you will receive a reset link' };
+  //   }
+
+  //   const resetToken = uuidv4();
+  //   const expiresAt = new Date();
+  //   expiresAt.setHours(expiresAt.getHours() + 24); // 24 hours
+
+  //   await this.usersService.setResetToken(user.id, resetToken, expiresAt);
+
+  //   // TODO: Send email with reset link
+  //   // await this.notificationsService.sendPasswordResetEmail(user.email, resetToken);
+
+  //   return { message: 'If your email exists, you will receive a reset link' };
+  // }
+
+  // async resetPassword(
+  //   token: string,
+  //   newPassword: string,
+  // ): Promise<{ message: string }> {
+  //   const user = await this.usersService.findByResetToken(token);
+
+  //   if (!user) {
+  //     throw new BadRequestException('Invalid or expired reset token');
+  //   }
+
+  //   const saltRounds = this.configService.get('app.bcryptSaltRounds');
+  //   const passwordHash = await bcrypt.hash(newPassword, saltRounds);
+
+  //   await this.usersService.updatePassword(user.id, passwordHash);
+  //   await this.usersService.clearResetToken(user.id);
+
+  //   return { message: 'Password successfully reset' };
+  // }
   async forgotPassword(email: string): Promise<{ message: string }> {
-    const user = await this.usersService.findByEmail(email);
+    try {
+      // Normaliser l'email
+      const normalizedEmail = email.toLowerCase().trim();
 
-    if (!user) {
-      // Return success even if user not found for security
-      return { message: 'If your email exists, you will receive a reset link' };
+      // Rechercher l'utilisateur
+      const user = await this.usersService.findByEmail(normalizedEmail);
+
+      // Pour des raisons de sécurité, on retourne le même message que l'utilisateur existe ou non
+      if (!user) {
+        this.logger.log(
+          `Tentative de réinitialisation pour email non existant: ${normalizedEmail}`,
+        );
+        return {
+          message:
+            'Si votre email existe dans notre système, vous recevrez un lien de réinitialisation',
+        };
+      }
+
+      // Vérifier si l'utilisateur est actif
+      if (!user.isActive || user.isBlocked) {
+        this.logger.warn(
+          `Tentative de réinitialisation pour compte inactif/bloqué: ${user.id}`,
+        );
+        return {
+          message:
+            'Si votre email existe dans notre système, vous recevrez un lien de réinitialisation',
+        };
+      }
+
+      // Vérifier le rate limiting (max 3 demandes par heure)
+      const rateLimitKey = `forgot_password:rate:${user.id}`;
+      const requests = await this.redis.get(rateLimitKey);
+
+      if (requests && parseInt(requests) >= 3) {
+        this.logger.warn(`Rate limit dépassé pour l'utilisateur ${user.id}`);
+        throw new BadRequestException(
+          'Trop de tentatives. Veuillez attendre 1 heure avant de réessayer.',
+        );
+      }
+
+      // Incrémenter le compteur de rate limiting
+      await this.redis
+        .multi()
+        .incr(rateLimitKey)
+        .expire(rateLimitKey, 3600) // Expire après 1 heure
+        .exec();
+
+      // Générer un token sécurisé
+      const resetToken = this.generateSecureToken();
+
+      // Stocker le token dans Redis avec une expiration de 30 minutes
+      const tokenKey = `password_reset:${resetToken}`;
+      await this.redis.setex(
+        tokenKey,
+        1800, // 30 minutes en secondes
+        JSON.stringify({
+          userId: user.id,
+          email: normalizedEmail,
+          createdAt: new Date().toISOString(),
+          used: false,
+        }),
+      );
+
+      this.logger.debug(`Clé Redis: ${tokenKey}`);
+
+      const storedData = await this.redis.get(tokenKey);
+      this.logger.debug(
+        `Données stockées vérifiées: ${storedData ? 'OK' : 'ECHEC'}`,
+      );
+
+      // Révoquer les anciens tokens pour cet utilisateur (optionnel)
+      await this.revokeOldResetTokens(user.id);
+
+      // Sauvegarder une référence du token dans la base de données (pour l'audit)
+      await this.usersService.setResetToken(
+        user.id,
+        resetToken,
+        new Date(Date.now() + 30 * 60 * 1000), // 30 minutes
+      );
+
+      // Construire le lien de réinitialisation
+      const frontendUrl =
+        this.configService.get('APP_FRONTEND_URL') || 'http://localhost:5173';
+      const resetLink = `${frontendUrl}/reset-password?token=${resetToken}&email=${encodeURIComponent(
+        normalizedEmail,
+      )}`;
+
+      // Envoyer l'email avec le lien
+      try {
+        await this.notificationsService.sendPasswordResetEmail({
+          to: user.email,
+          template: 'password-reset',
+          data: {
+            firstName: user.firstName,
+            resetLink,
+            expiresIn: '30 minutes',
+            supportEmail:
+              this.configService.get('SUPPORT_EMAIL') || 'support@copa.bi',
+          },
+        });
+
+        this.logger.log(`Email de réinitialisation envoyé à ${user.email}`);
+      } catch (emailError) {
+        this.logger.error(
+          `Erreur lors de l'envoi de l'email de réinitialisation à ${user.email}:`,
+          emailError,
+        );
+
+        // Nettoyer le token si l'email échoue
+        await this.redis.del(tokenKey);
+        await this.usersService.clearResetToken(user.id);
+
+        throw new InternalServerErrorException(
+          "Erreur lors de l'envoi de l'email. Veuillez réessayer plus tard.",
+        );
+      }
+
+      return {
+        message:
+          'Si votre email existe dans notre système, vous recevrez un lien de réinitialisation',
+      };
+    } catch (error) {
+      // Log l'erreur mais retourner un message générique pour la sécurité
+      this.logger.error('Erreur dans forgotPassword:', error);
+
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+
+      throw new InternalServerErrorException(
+        'Une erreur est survenue. Veuillez réessayer plus tard.',
+      );
     }
-
-    const resetToken = uuidv4();
-    const expiresAt = new Date();
-    expiresAt.setHours(expiresAt.getHours() + 24); // 24 hours
-
-    await this.usersService.setResetToken(user.id, resetToken, expiresAt);
-
-    // TODO: Send email with reset link
-    // await this.notificationsService.sendPasswordResetEmail(user.email, resetToken);
-
-    return { message: 'If your email exists, you will receive a reset link' };
   }
 
   async resetPassword(
     token: string,
     newPassword: string,
+    ipAddress?: string,
+    userAgent?: string,
   ): Promise<{ message: string }> {
-    const user = await this.usersService.findByResetToken(token);
+    try {
+      // Valider le format du token
+      if (!token || token.length < 32) {
+        throw new BadRequestException('Token de réinitialisation invalide');
+      }
 
-    if (!user) {
-      throw new BadRequestException('Invalid or expired reset token');
+      // Valider la force du mot de passe
+      this.validatePasswordStrength(newPassword);
+
+      // Vérifier le token dans Redis
+      const tokenKey = `password_reset:${token}`;
+      const tokenData = await this.redis.get(tokenKey);
+
+      if (!tokenData) {
+        // Vérifier dans la base de données comme fallback (pour compatibilité)
+        const user = await this.usersService.findByResetToken(token);
+
+        if (!user) {
+          this.logger.warn(
+            `Tentative de reset avec token invalide/expiré: ${token.substring(0, 8)}...`,
+          );
+          throw new BadRequestException(
+            'Le lien de réinitialisation est invalide ou a expiré. Veuillez en demander un nouveau.',
+          );
+        }
+
+        // Vérifier si le token n'est pas expiré
+        if (user.resetTokenExpiresAt && user.resetTokenExpiresAt < new Date()) {
+          throw new BadRequestException(
+            'Le lien de réinitialisation a expiré. Veuillez en demander un nouveau.',
+          );
+        }
+
+        // Utiliser le user trouvé en base
+        return await this.completePasswordReset(
+          user,
+          newPassword,
+          ipAddress,
+          userAgent,
+          token,
+        );
+      }
+
+      // Parse les données du token Redis
+      const { userId, email, used } = JSON.parse(tokenData);
+
+      // Vérifier si le token a déjà été utilisé
+      if (used) {
+        this.logger.warn(
+          `Tentative de réutilisation d'un token déjà utilisé: ${userId}`,
+        );
+        throw new BadRequestException(
+          'Ce lien de réinitialisation a déjà été utilisé. Veuillez en demander un nouveau.',
+        );
+      }
+
+      // Récupérer l'utilisateur
+      const user = await this.usersService.findById(userId);
+
+      if (!user) {
+        this.logger.error(`Utilisateur non trouvé pour le token: ${userId}`);
+        throw new BadRequestException('Token de réinitialisation invalide');
+      }
+
+      // Vérifier que l'email correspond
+      if (user.email.toLowerCase() !== email.toLowerCase()) {
+        this.logger.error(
+          `Email mismatch pour le reset: ${user.email} vs ${email}`,
+        );
+        throw new BadRequestException('Token de réinitialisation invalide');
+      }
+
+      // Marquer le token comme utilisé dans Redis
+      await this.redis.setex(
+        tokenKey,
+        1800, // Garder pour 30 min mais marqué comme utilisé
+        JSON.stringify({
+          userId,
+          email,
+          createdAt: new Date().toISOString(),
+          used: true,
+          usedAt: new Date().toISOString(),
+          usedByIp: ipAddress,
+        }),
+      );
+
+      return await this.completePasswordReset(
+        user,
+        newPassword,
+        ipAddress,
+        userAgent,
+        token,
+      );
+    } catch (error) {
+      this.logger.error('Erreur dans resetPassword:', error);
+
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+
+      throw new InternalServerErrorException(
+        'Une erreur est survenue lors de la réinitialisation du mot de passe.',
+      );
+    }
+  }
+
+  private async completePasswordReset(
+    user: User,
+    newPassword: string,
+    ipAddress?: string,
+    userAgent?: string,
+    token?: string,
+  ): Promise<{ message: string }> {
+    // Vérifier que le nouveau mot de passe est différent de l'ancien
+    const isSamePassword = await bcrypt.compare(newPassword, user.passwordHash);
+    if (isSamePassword) {
+      throw new BadRequestException(
+        "Le nouveau mot de passe doit être différent de l'ancien.",
+      );
     }
 
-    const saltRounds = this.configService.get('app.bcryptSaltRounds');
+    // Hasher le nouveau mot de passe
+    const saltRounds =
+      parseInt(this.configService.get('app.bcryptSaltRounds') || '10') || 10;
     const passwordHash = await bcrypt.hash(newPassword, saltRounds);
 
-    await this.usersService.updatePassword(user.id, passwordHash);
-    await this.usersService.clearResetToken(user.id);
+    // Mettre à jour le mot de passe dans une transaction
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
 
-    return { message: 'Password successfully reset' };
+    try {
+      // Mettre à jour le mot de passe
+      await this.usersService.updatePassword(user.id, passwordHash);
+
+      // Effacer le token de réinitialisation
+      await this.usersService.clearResetToken(user.id);
+
+      // Révoquer tous les refresh tokens actifs (déconnecter de tous les appareils)
+      await this.authRepository.revokeAllUserRefreshTokens(user.id);
+
+      // Journaliser le changement de mot de passe
+      await this.authRepository.logPasswordReset({
+        userId: user.id,
+        ipAddress,
+        userAgent,
+        timestamp: new Date(),
+      });
+
+      // Envoyer une notification par email
+      try {
+        await this.notificationsService.sendPasswordChangedEmail({
+          to: user.email,
+          template: 'password-changed',
+          data: {
+            firstName: user.firstName,
+            changeTime: new Date().toLocaleString('fr-FR'),
+            ipAddress: ipAddress || 'Non disponible',
+            supportEmail:
+              this.configService.get('SUPPORT_EMAIL') || 'support@copa.bi',
+          },
+        });
+      } catch (emailError) {
+        // Ne pas bloquer le processus si l'email échoue
+        this.logger.error(
+          `Erreur lors de l'envoi de la notification de changement de mot de passe à ${user.email}:`,
+          emailError,
+        );
+      }
+
+      await queryRunner.commitTransaction();
+
+      this.logger.log(
+        `Mot de passe réinitialisé avec succès pour l'utilisateur ${user.id}`,
+      );
+
+      return {
+        message:
+          'Votre mot de passe a été réinitialisé avec succès. Vous pouvez maintenant vous connecter avec votre nouveau mot de passe.',
+      };
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  private async revokeOldResetTokens(userId: number): Promise<void> {
+    try {
+      // Trouver tous les tokens Redis pour cet utilisateur
+      const pattern = `password_reset:*`;
+      const keys = await this.redis.keys(pattern);
+
+      for (const key of keys) {
+        const data = await this.redis.get(key);
+        if (data) {
+          const { userId: tokenUserId } = JSON.parse(data);
+          if (tokenUserId === userId) {
+            // Marquer comme révoqué ou supprimer
+            await this.redis.del(key);
+          }
+        }
+      }
+    } catch (error) {
+      this.logger.error(
+        `Erreur lors de la révocation des anciens tokens: ${error.message}`,
+      );
+    }
+  }
+
+  private generateSecureToken(): string {
+    // Générer un token plus sécurisé que uuidv4
+    return randomBytes(32).toString('hex');
+  }
+
+  private validatePasswordStrength(password: string): void {
+    if (password.length < 8) {
+      throw new BadRequestException(
+        'Le mot de passe doit contenir au moins 8 caractères',
+      );
+    }
+
+    if (!/[A-Z]/.test(password)) {
+      throw new BadRequestException(
+        'Le mot de passe doit contenir au moins une majuscule',
+      );
+    }
+
+    if (!/[a-z]/.test(password)) {
+      throw new BadRequestException(
+        'Le mot de passe doit contenir au moins une minuscule',
+      );
+    }
+
+    if (!/[0-9]/.test(password)) {
+      throw new BadRequestException(
+        'Le mot de passe doit contenir au moins un chiffre',
+      );
+    }
+
+    if (!/[!@#$%^&*]/.test(password)) {
+      throw new BadRequestException(
+        'Le mot de passe doit contenir au moins un caractère spécial (!@#$%^&*)',
+      );
+    }
+  }
+
+  // Ajouter une méthode pour nettoyer les tokens expirés (pour cron job)
+  async cleanExpiredResetTokens(): Promise<number> {
+    try {
+      // Nettoyer les tokens Redis expirés (Redis le fait automatiquement)
+      // Nettoyer les tokens en base de données
+      const result = await this.userRepo.update(
+        {
+          resetTokenExpiresAt: LessThan(new Date()),
+        },
+        {
+          resetToken: undefined,
+          resetTokenExpiresAt: undefined,
+        },
+      );
+
+      this.logger.log(
+        `${result.affected || 0} tokens de réinitialisation expirés nettoyés`,
+      );
+
+      return result.affected || 0;
+    } catch (error) {
+      this.logger.error('Erreur lors du nettoyage des tokens expirés:', error);
+      return 0;
+    }
   }
 
   async getProfile(userId: number) {

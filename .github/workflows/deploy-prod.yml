@@ -1,0 +1,78 @@
+name: 🚀 Deploy E-LUXE Client to Production
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  deploy-prod:
+    runs-on: ubuntu-latest
+    # The environment name. This is optional but good for organization and can be used for approval rules later.
+    # environment: production
+
+    steps:
+      # Step 1: Checkout the code. This is necessary for the SCP step to have the files to send.
+      - name: 🛎 Checkout code
+        uses: actions/checkout@v4
+
+      # Step 2: Create the .env file from GitHub Secrets
+      - name: 🔐 Create .env file
+        run: |
+          echo "${{ secrets.DOT_ENV_PRODUCTION }}" > .env.production
+        # Note: I named it .env.production to avoid overwriting any local .env files accidentally.
+
+      # Step 3: Securely copy the environment file to the server
+      - name: 📤 SCP .env to Server
+        uses: appleboy/scp-action@master # Prefer using a version tag over 'master'
+        with:
+          host: ${{ secrets.PROD_HOST }}
+          username: ${{ secrets.PROD_USERNAME }}
+          key: ${{ secrets.PROD_SSH_PRIVATE_KEY }}
+          source: ".env.production"
+          target: "${{ secrets.PROD_SERVER_PATH }}/"
+          # strip_components: 1 (Might be needed if your repo structure is different)
+
+      # Step 4: SSH into the server and run deployment commands
+      - name: 📡 SSH & Deploy
+        uses: appleboy/ssh-action@master # Prefer using a version tag
+        with:
+          host: ${{ secrets.PROD_HOST }}
+          username: ${{ secrets.PROD_USERNAME }} # FIXED: Changed from 'secrets.USERNAME' # FIXED: Changed from 'secrets.USERNAME'
+          key: ${{ secrets.PROD_SSH_PRIVATE_KEY }}
+          script: |
+            set -e # Exit immediately if any command fails
+            echo "➡️ Navigating to project directory..."
+            cd ${{ secrets.PROD_SERVER_PATH }}
+
+            echo "🔄 Pulling latest code from main branch..."
+            git fetch --all
+            git reset --hard origin/main # A safer alternative to a pure pull for deployments
+
+            echo "🔧 Fixing TypeScript configuration..."
+            # Ensure baseUrl is set in tsconfig.json
+            if grep -q '"baseUrl": "."' tsconfig.json; then
+              echo "✅ baseUrl already configured"
+            else
+              echo "⚠️  Adding baseUrl to tsconfig.json"
+              sed -i 's/"paths": {/"baseUrl": ".",\n    "paths": {/' tsconfig.json
+            fi
+
+            echo "🧹 Cleaning project artifacts..."
+            # Remove build caches and node_modules for a fresh start
+            # rm -rf .next
+            # rm -rf node_modules/.cache
+
+            echo "📦 Installing dependencies..."
+            npm install --only=production --legacy-peer-deps
+
+            echo "🏗️ Building application..."
+            NODE_OPTIONS="--max-old-space-size=2048" npm run build
+
+            echo "🔄 Starting/Reloading application with PM2..."
+            # Try to reload the app. If it fails (because it's not running), start it.
+            pm2 reload ecosystem.config.js --env production || pm2 start ecosystem.config.js --env production
+
+            echo "💾 Saving PM2 process list for recovery after reboot..."
+            pm2 save
+
+            echo "✅ Deployment successful! Application is live."

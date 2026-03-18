@@ -581,6 +581,178 @@ export class NotificationsService {
     }
   }
 
+  /**
+   * Envoie un email de réinitialisation de mot de passe
+   */
+  async sendPasswordResetEmail(options: {
+    to: string;
+    template?: string;
+    data: {
+      firstName: string;
+      resetLink: string;
+      expiresIn: string;
+      supportEmail: string;
+    };
+  }): Promise<any> {
+    try {
+      this.logger.log(`Préparation email reset password pour ${options.to}`);
+
+      // Récupérer le template
+      const template = this.emailTemplates.getPasswordReset({
+        firstName: options.data.firstName,
+        resetLink: options.data.resetLink,
+        expiresIn: options.data.expiresIn,
+        supportEmail: options.data.supportEmail,
+      });
+
+      // Envoyer l'email
+      const result = await this.twilioService.sendEmail({
+        to: options.to,
+        subject: template.subject,
+        html: template.html,
+        text: template.text,
+        templateId:
+          options.template === 'password-reset'
+            ? this.configService.get('SENDGRID_TEMPLATE_PASSWORD_RESET')
+            : undefined,
+      });
+
+      // Sauvegarder en base
+      const user = await this.usersService.findByEmail(options.to);
+      if (user) {
+        const notification = this.notificationRepository.create({
+          recipientUserId: user.id,
+          channel: NotificationChannel.EMAIL,
+          notificationType: NotificationType.INFO,
+          title: template.subject,
+          content: template.text,
+          context: {
+            emailType: 'password_reset',
+            resetLink: options.data.resetLink,
+            messageId: result.messageId,
+            provider: result.provider,
+          },
+          isSent: true,
+          sentAt: new Date(),
+        });
+        await this.notificationRepository.save(notification);
+      }
+
+      this.logger.log(`✅ Email reset password envoyé à ${options.to}`);
+
+      return {
+        success: true,
+        messageId: result.messageId,
+        provider: result.provider,
+      };
+    } catch (error) {
+      this.logger.error(
+        `❌ Erreur envoi reset password à ${options.to}:`,
+        error,
+      );
+
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  }
+
+  /**
+   * Envoie une notification de changement de mot de passe
+   */
+  async sendPasswordChangedEmail(options: {
+    to: string;
+    template?: string;
+    data: {
+      firstName: string;
+      changeTime: string;
+      ipAddress: string;
+      supportEmail: string;
+    };
+  }): Promise<any> {
+    try {
+      const template = this.emailTemplates.getPasswordChanged({
+        firstName: options.data.firstName,
+        changeTime: options.data.changeTime,
+        ipAddress: options.data.ipAddress,
+        supportEmail: options.data.supportEmail,
+      });
+
+      const result = await this.twilioService.sendEmail({
+        to: options.to,
+        subject: template.subject,
+        html: template.html,
+        text: template.text,
+      });
+
+      const user = await this.usersService.findByEmail(options.to);
+      if (user) {
+        const notification = this.notificationRepository.create({
+          recipientUserId: user.id,
+          channel: NotificationChannel.EMAIL,
+          notificationType: NotificationType.INFO,
+          title: template.subject,
+          content: template.text,
+          context: {
+            emailType: 'password_changed',
+            changeTime: options.data.changeTime,
+            ipAddress: options.data.ipAddress,
+            messageId: result.messageId,
+          },
+          isSent: true,
+          sentAt: new Date(),
+        });
+        await this.notificationRepository.save(notification);
+      }
+
+      return { success: true, messageId: result.messageId };
+    } catch (error) {
+      this.logger.error(
+        'Erreur envoi notification changement password:',
+        error,
+      );
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Journalise une tentative de réinitialisation de mot de passe
+   */
+  async logPasswordReset(data: {
+    userId: number;
+    ipAddress?: string;
+    userAgent?: string;
+    timestamp: Date;
+  }): Promise<void> {
+    try {
+      // Créer une notification système pour l'audit
+      const notification = this.notificationRepository.create({
+        recipientUserId: data.userId,
+        channel: NotificationChannel.IN_APP,
+        notificationType: NotificationType.INFO,
+        title: 'Réinitialisation de mot de passe',
+        content: 'Votre mot de passe a été réinitialisé avec succès',
+        context: {
+          eventType: 'password_reset',
+          ipAddress: data.ipAddress,
+          userAgent: data.userAgent,
+          timestamp: data.timestamp,
+          action: 'reset_completed',
+        },
+        isSent: true,
+        sentAt: data.timestamp,
+        isRead: false,
+      });
+
+      await this.notificationRepository.save(notification);
+
+      this.logger.log(`Password reset logged for user ${data.userId}`);
+    } catch (error) {
+      this.logger.error('Erreur lors du log password reset:', error);
+    }
+  }
+
   async sendPlanSoumis(user: any, plan: any) {
     const template = this.emailTemplates.getPlanAffairesSoumis({
       firstName: user.firstName,

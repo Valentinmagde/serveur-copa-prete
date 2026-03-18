@@ -6,6 +6,8 @@ export enum EmailTemplateType {
   PLAN_AFFAIRES_SOUMIS = 'plan_affaires_soumis',
   LAUREAT = 'laureat',
   NON_RETENU = 'non_retenu',
+  PASSWORD_RESET = 'password_reset',
+  PASSWORD_CHANGED = 'password_changed',
 }
 
 export enum SmsTemplateType {
@@ -24,6 +26,13 @@ export interface TemplateData {
 
   // Email confirmation
   activationLink?: string;
+
+  // Password reset
+  resetLink?: string;
+  expiresIn?: string;
+  supportEmail?: string;
+  changeTime?: string;
+  ipAddress?: string;
 
   // Confirmation de profil
   dateEnregistrement?: string;
@@ -81,6 +90,226 @@ export class EmailTemplatesService {
   }
 
   // ==================== EMAILS TRANSACTIONNELS ====================
+
+  /**
+   * Template: Réinitialisation de mot de passe
+   */
+  getPasswordReset(data: TemplateData): {
+    subject: string;
+    html: string;
+    text: string;
+  } {
+    const subject = 'Réinitialisation de votre mot de passe - COPA';
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Réinitialisation mot de passe</title>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background-color: #1F4E79; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+          .content { padding: 30px 20px; background-color: #f9f9f9; }
+          .warning-box {
+            background-color: #fff3cd;
+            border: 1px solid #ffeeba;
+            color: #856404;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+          }
+          .button {
+            display: inline-block;
+            padding: 12px 24px;
+            background-color: #1F4E79;
+            color: white !important;
+            text-decoration: none;
+            border-radius: 5px;
+            margin: 20px 0;
+            font-weight: bold;
+          }
+          .footer {
+            margin-top: 30px;
+            padding: 20px;
+            font-size: 12px;
+            color: #666;
+            border-top: 1px solid #ddd;
+          }
+          .expiry-note {
+            background-color: #e9ecef;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 14px;
+            text-align: center;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>Réinitialisation de mot de passe</h1>
+          </div>
+          
+          <div class="content">
+            <p>Bonjour <strong>${data.firstName || ''}</strong>,</p>
+            
+            <p>Nous avons reçu une demande de réinitialisation de mot de passe pour votre compte COPA.</p>
+            
+            <div class="warning-box">
+              <strong>⚠️ Sécurité :</strong> Si vous n'êtes pas à l'origine de cette demande, veuillez ignorer cet email.
+            </div>
+            
+            <p>Pour définir un nouveau mot de passe, cliquez sur le bouton ci-dessous :</p>
+            
+            <div style="text-align: center;">
+              <a href="${data.resetLink}" class="button">Réinitialiser mon mot de passe</a>
+            </div>
+            
+            <div class="expiry-note">
+              Ce lien expirera dans <strong>${data.expiresIn || '30 minutes'}</strong>
+            </div>
+            
+            <p>Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur :<br>
+            <a href="${data.resetLink}">${data.resetLink}</a></p>
+            
+            <p>Pour toute assistance, contactez notre équipe support :<br>
+            Email : <a href="mailto:${data.supportEmail || this.supportEmail}">${data.supportEmail || this.supportEmail}</a><br>
+            Téléphone : ${this.telephoneSupport}</p>
+          </div>
+          
+          <div class="footer">
+            <p>© ${new Date().getFullYear()} COPA - Concours de Plans d'Affaires du Burundi</p>
+            <p>Cet email a été envoyé suite à une demande de réinitialisation de mot de passe.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const text = `
+      RÉINITIALISATION DE VOTRE MOT DE PASSE - COPA
+
+      Bonjour ${data.firstName || ''},
+
+      Nous avons reçu une demande de réinitialisation de mot de passe pour votre compte COPA.
+
+      ⚠️ SÉCURITÉ : Si vous n'êtes pas à l'origine de cette demande, veuillez ignorer cet email.
+
+      Pour définir un nouveau mot de passe, cliquez sur ce lien :
+      ${data.resetLink}
+
+      Ce lien expirera dans ${data.expiresIn || '30 minutes'}
+
+      Pour toute assistance :
+      Email : ${data.supportEmail || this.supportEmail}
+      Téléphone : ${this.telephoneSupport}
+    `;
+
+    return { subject, html, text };
+  }
+
+  /**
+   * Template: Confirmation de changement de mot de passe
+   */
+  getPasswordChanged(data: TemplateData): {
+    subject: string;
+    html: string;
+    text: string;
+  } {
+    const subject = 'Votre mot de passe a été modifié - COPA';
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Mot de passe modifié</title>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background-color: #28a745; color: white; padding: 20px; text-align: center; }
+          .content { padding: 30px 20px; background-color: #f9f9f9; }
+          .info-box {
+            background-color: #e9ecef;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+          }
+          .warning-box {
+            background-color: #fff3cd;
+            border: 1px solid #ffeeba;
+            color: #856404;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+          }
+          .footer {
+            margin-top: 30px;
+            padding: 20px;
+            font-size: 12px;
+            color: #666;
+            border-top: 1px solid #ddd;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>Mot de passe modifié</h1>
+          </div>
+          
+          <div class="content">
+            <p>Bonjour <strong>${data.firstName || ''}</strong>,</p>
+            
+            <p>Votre mot de passe a été modifié avec succès.</p>
+            
+            <div class="info-box">
+              <p><strong>Date et heure :</strong> ${data.changeTime || new Date().toLocaleString('fr-FR')}</p>
+              <p><strong>Adresse IP :</strong> ${data.ipAddress || 'Non disponible'}</p>
+            </div>
+            
+            <div class="warning-box">
+              <strong>🔒 Si vous n'êtes pas à l'origine de cette modification :</strong>
+              <p>Contactez immédiatement notre support :</p>
+              <p>Email : <a href="mailto:${data.supportEmail || this.supportEmail}">${data.supportEmail || this.supportEmail}</a><br>
+              Téléphone : ${this.telephoneSupport}</p>
+            </div>
+            
+            <p>Vous pouvez maintenant vous connecter avec votre nouveau mot de passe.</p>
+          </div>
+          
+          <div class="footer">
+            <p>© ${new Date().getFullYear()} COPA - Concours de Plans d'Affaires du Burundi</p>
+            <p>Cet email est une confirmation de modification de mot de passe.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const text = `
+      VOTRE MOT DE PASSE A ÉTÉ MODIFIÉ - COPA
+
+      Bonjour ${data.firstName || ''},
+
+      Votre mot de passe a été modifié avec succès.
+
+      Date et heure : ${data.changeTime || new Date().toLocaleString('fr-FR')}
+      Adresse IP : ${data.ipAddress || 'Non disponible'}
+
+      🔒 SI VOUS N'ÊTES PAS À L'ORIGINE DE CETTE MODIFICATION :
+      Contactez immédiatement notre support :
+      Email : ${data.supportEmail || this.supportEmail}
+      Téléphone : ${this.telephoneSupport}
+
+      Vous pouvez maintenant vous connecter avec votre nouveau mot de passe.
+    `;
+
+    return { subject, html, text };
+  }
 
   /**
    * Template: Confirmation d'inscription

@@ -17,12 +17,24 @@ import { NotificationsModule } from '../notifications/notifications.module';
 import { User } from '../users/entities/user.entity';
 import { Beneficiary } from '../beneficiaries/entities/beneficiary.entity';
 import { Company } from '../companies/entities/company.entity';
+import { RedisModule } from '@nestjs-modules/ioredis';
 
 @Module({
   imports: [
     UsersModule,
     NotificationsModule,
     PassportModule,
+    // RedisModule.forRootAsync({
+    //   imports: [ConfigModule],
+    //   useFactory: (configService: ConfigService) => ({
+    //     type: 'single',
+    //     options: {
+    //       host: configService.get('REDIS_HOST'),
+    //       port: configService.get<number>('REDIS_PORT'),
+    //     },
+    //   }),
+    //   inject: [ConfigService],
+    // }),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({

@@ -34,6 +34,7 @@ import { Throttle } from '@nestjs/throttler';
 import { ResendVerificationDto, VerifyEmailDto } from './dto/verify-email.dto';
 import { RegistrationStep1Dto } from './dto/register-step1.dto';
 import { RegistrationMpmeDto } from './dto/register-mpme.dto';
+import { ValidateResetTokenDto } from './entities/validate-reset-token.dto';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -133,16 +134,16 @@ export class AuthController {
     return this.authService.forgotPassword(forgotPasswordDto.email);
   }
 
-  @Public()
-  @Post('reset-password')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Reset password with token' })
-  async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
-    return this.authService.resetPassword(
-      resetPasswordDto.token,
-      resetPasswordDto.newPassword,
-    );
-  }
+  // @Public()
+  // @Post('reset-password')
+  // @HttpCode(HttpStatus.OK)
+  // @ApiOperation({ summary: 'Reset password with token' })
+  // async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
+  //   return this.authService.resetPassword(
+  //     resetPasswordDto.token,
+  //     resetPasswordDto.newPassword,
+  //   );
+  // }
 
   @Get('profile')
   @UseGuards(JwtAuthGuard)
@@ -187,5 +188,64 @@ export class AuthController {
       success: true,
       message: 'Email de vérification renvoyé avec succès',
     };
+  }
+
+  @Public()
+  @Post('validate-reset-token')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Validate reset token' })
+  @ApiResponse({
+    status: 200,
+    description: 'Token is valid',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid or expired token',
+  })
+  async validateResetToken(@Body() validateTokenDto: ValidateResetTokenDto) {
+    const isValid = await this.authService.validateResetToken(
+      validateTokenDto.token,
+      validateTokenDto.email,
+    );
+
+    return {
+      valid: isValid,
+      message: isValid ? 'Token valide' : 'Token invalide ou expiré',
+    };
+  }
+
+  @Public()
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Reset password with token' })
+  @ApiResponse({
+    status: 200,
+    description: 'Password successfully reset',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid token or weak password',
+  })
+  @ApiHeader({
+    name: 'x-forwarded-for',
+    description: 'Client IP address',
+    required: false,
+  })
+  @ApiHeader({
+    name: 'user-agent',
+    description: 'User agent header',
+    required: false,
+  })
+  async resetPassword(
+    @Body() resetPasswordDto: ResetPasswordDto,
+    @Headers('x-forwarded-for') ipAddress: string,
+    @Headers('user-agent') userAgent: string,
+  ) {
+    return this.authService.resetPassword(
+      resetPasswordDto.token,
+      resetPasswordDto.newPassword,
+      ipAddress,
+      userAgent,
+    );
   }
 }
