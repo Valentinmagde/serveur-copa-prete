@@ -215,6 +215,12 @@ export class Company {
   @Column({ name: 'company_email', nullable: true })
   companyEmail?: string;
 
+  @Column({ name: 'company_address_is_different', nullable: true })
+  companyAddressIsDifferent?: boolean;
+
+  @Column({ name: 'total_employees', nullable: true })
+  totalEmployees?: number;
+
   @Column({ name: 'address_id', nullable: true })
   addressId: number;
 

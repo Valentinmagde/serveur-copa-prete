@@ -462,6 +462,10 @@ export class BeneficiariesService {
               step2.companyPhone ?? beneficiary.company.companyPhone;
             beneficiary.company.companyEmail =
               step2.companyEmail ?? beneficiary.company.companyEmail;
+            beneficiary.company.companyAddressIsDifferent =
+              step2.companyAddressIsDifferent ?? beneficiary.company.companyAddressIsDifferent;
+            beneficiary.company.totalEmployees =
+              step2.totalEmployees ?? beneficiary.company.totalEmployees;
 
             if (companyAddressId) {
               beneficiary.company.addressId = companyAddressId;
@@ -515,6 +519,8 @@ export class BeneficiariesService {
               bankCreditAmount: step2.bankCreditAmount,
               companyPhone: step2.companyPhone,
               companyEmail: step2.companyEmail,
+              companyAddressIsDifferent: step2.companyAddressIsDifferent,
+              totalEmployees: step2.totalEmployees,
             } as any);
             const savedCompany: any = await queryRunner.manager.save(company);
             beneficiary.companyId = savedCompany.id;

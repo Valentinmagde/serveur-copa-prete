@@ -230,6 +230,15 @@ export class UpdateStep2Dto {
   @Min(0)
   bankCreditAmount?: number; // Nouveau champ
 
+  @ApiProperty({ required: false })
+  @IsOptional()
+  companyAddressIsDifferent?: boolean;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsNumber()
+  totalEmployees?: number;
+
   // Indicateurs (existants)
   @ApiProperty({
     description: 'Entreprise dirigée par une femme ?',
