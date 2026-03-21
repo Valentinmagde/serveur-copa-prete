@@ -217,70 +217,72 @@ async function seed() {
       // Insert Provinces
       await queryRunner.manager.query(`
         INSERT INTO provinces (name, region, is_active) VALUES
-        ('Bujumbura', 'Ouest', true),
-        ('Gitega', 'Centre', true),
-        ('Kirundo', 'Nord', true),
-        ('Ngozi', 'Nord', true),
-        ('Rumonge', 'Sud-Ouest', true);
+        ('Buhumuza', 'Ouest', true),
+        ('Bujumbura', 'Centre', true),
+        ('Burunga', 'Nord', true),
+        ('Butanyerera', 'Nord', true),
+        ('Gitega', 'Sud-Ouest', true);
       `);
 
       console.log('Provinces seeded');
 
-      // Insert Communes (42 communes – réforme 2022)
+      // Insert Communes (42 communes – Loi organique n°1/05 du 16 mars 2023)
       await queryRunner.manager.query(`
         INSERT INTO communes (name, province_id, is_active)
         SELECT c.name, p.id, true
         FROM (
-          VALUES
-          -- BUJUMBURA
-          ('Ntahangwa', 'Bujumbura'),
-          ('Mukaza', 'Bujumbura'),
-          ('Muha', 'Bujumbura'),
-          ('Isale', 'Bujumbura'),
-          ('Kanyosha', 'Bujumbura'),
-          ('Mutimbuzi', 'Bujumbura'),
-          ('Mubimbi', 'Bujumbura'),
-          ('Nyabiraba', 'Bujumbura'),
+          VALUES 
+          -- BUHUMUZA (7 communes)
+          ('Commune Butaganzwa', 'Buhumuza'),
+          ('Commune Butihinda',  'Buhumuza'),
+          ('Commune Cankuzo',    'Buhumuza'),
+          ('Commune Gisagara',   'Buhumuza'),
+          ('Commune Gisuru',     'Buhumuza'),
+          ('Commune Muyinga',    'Buhumuza'),
+          ('Commune Ruyigi',     'Buhumuza'),
 
-          -- GITEGA
-          ('Gitega', 'Gitega'),
-          ('Giheta', 'Gitega'),
-          ('Makebuko', 'Gitega'),
-          ('Mutaho', 'Gitega'),
-          ('Nyarusange', 'Gitega'),
-          ('Ryansoro', 'Gitega'),
-          ('Bugendana', 'Gitega'),
-          ('Itaba', 'Gitega'),
-          ('Bukirasazi', 'Gitega'),
+          -- BUJUMBURA (11 communes)
+          ('Commune Bubanza',      'Bujumbura'),
+          ('Commune Bukinanyana',  'Bujumbura'),
+          ('Commune Cibitoke',     'Bujumbura'),
+          ('Commune Isare',        'Bujumbura'),
+          ('Commune Mpanda',       'Bujumbura'),
+          ('Commune Mugere',       'Bujumbura'),
+          ('Commune Mugina',       'Bujumbura'),
+          ('Commune Muhuta',       'Bujumbura'),
+          ('Commune Mukaza',       'Bujumbura'),
+          ('Commune Ntahangwa',    'Bujumbura'),
+          ('Commune Rwibaga',      'Bujumbura'),
 
-          -- KIRUNDO
-          ('Kirundo', 'Kirundo'),
-          ('Busoni', 'Kirundo'),
-          ('Bwambarangwe', 'Kirundo'),
-          ('Gitobe', 'Kirundo'),
-          ('Ntega', 'Kirundo'),
-          ('Vumbi', 'Kirundo'),
+          -- BURUNGA (7 communes)
+          ('Commune Bururi',     'Burunga'),
+          ('Commune Makamba',    'Burunga'),
+          ('Commune Matana',     'Burunga'),
+          ('Commune Musongati',  'Burunga'),
+          ('Commune Nyanza',     'Burunga'),
+          ('Commune Rumonge',    'Burunga'),
+          ('Commune Rutana',     'Burunga'),
 
-          -- NGOZI
-          ('Ngozi', 'Ngozi'),
-          ('Busiga', 'Ngozi'),
-          ('Gashikanwa', 'Ngozi'),
-          ('Kiremba', 'Ngozi'),
-          ('Marangara', 'Ngozi'),
-          ('Mwumba', 'Ngozi'),
-          ('Nyamurenza', 'Ngozi'),
-          ('Ruhororo', 'Ngozi'),
-          ('Tangara', 'Ngozi'),
+          -- BUTANYERERA (8 communes)
+          ('Commune Busoni',    'Butanyerera'),
+          ('Commune Kayanza',   'Butanyerera'),
+          ('Commune Kiremba',   'Butanyerera'),
+          ('Commune Kirundo',   'Butanyerera'),
+          ('Commune Matongo',   'Butanyerera'),
+          ('Commune Muhanga',   'Butanyerera'),
+          ('Commune Ngozi',     'Butanyerera'),
+          ('Commune Tangara',   'Butanyerera'),
 
-          -- RUMONGE
-          ('Rumonge', 'Rumonge'),
-          ('Burambi', 'Rumonge'),
-          ('Buyengero', 'Rumonge'),
-          ('Muhuta', 'Rumonge'),
-          ('Mabanda', 'Rumonge'),
-          ('Nyanza-Lac', 'Rumonge'),
-          ('Kayogoro', 'Rumonge'),
-          ('Gitanga', 'Rumonge')
+          -- GITEGA (9 communes)
+          ('Commune Bugendana',  'Gitega'),
+          ('Commune Gishubi',    'Gitega'),
+          ('Commune Gitega',     'Gitega'),
+          ('Commune Karusi',     'Gitega'),
+          ('Commune Kiganda',    'Gitega'),
+          ('Commune Muramvya',   'Gitega'),
+          ('Commune Mwaro',      'Gitega'),
+          ('Commune Nyabihanga', 'Gitega'),
+          ('Commune Shombo',     'Gitega')
         ) AS c(name, province_name)
         JOIN provinces p ON p.name = c.province_name;
       `);

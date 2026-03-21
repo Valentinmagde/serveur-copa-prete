@@ -64,11 +64,17 @@ export class Company {
   primarySector: BusinessSector;
 
   @Column({ name: 'primary_sector_id', nullable: true })
-  primarySectorId: number;
+  primarySectorId: number | null;
+
+  @Column({ name: 'other_company_sector', nullable: true })
+  otherCompanySector?: string;
 
   @ManyToOne(() => BusinessSector)
   @JoinColumn({ name: 'secondary_sector_id' })
   secondarySector: BusinessSector;
+
+  @Column({ name: 'support_service', nullable: true, default: false })
+  supportService?: boolean;
 
   @Column({ name: 'secondary_sector_id', nullable: true })
   secondarySectorId: number;
@@ -227,6 +233,22 @@ export class Company {
   @OneToOne(() => Address)
   @JoinColumn({ name: 'address_id' })
   address: Address;
+
+  @Column({ name: 'albinos_employees', default: 0 })
+  albinosEmployees: number;
+
+  @Column({ name: 'repatriates_employees', default: 0 })
+  repatriatesEmployees: number;
+
+  @Column({ name: 'part_time_employees', default: 0 })
+  partTimeEmployees: number;
+
+  // ===== NOUVEAUX CHAMPS POUR ASSOCIÉS =====
+  @Column({ name: 'albinos_partners', default: 0 })
+  albinosPartners: number;
+
+  @Column({ name: 'repatriates_partners', default: 0 })
+  repatriatesPartners: number;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

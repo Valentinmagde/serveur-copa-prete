@@ -40,10 +40,8 @@ export class UpdateStep2Dto {
 
   @ApiProperty({ required: false, example: 2020 })
   @ValidateIf((o) => o.companyExists === 'yes')
-  @IsInt()
-  @Min(1900)
   @Max(new Date().getFullYear())
-  creationYear?: number;
+  creationYear?: any;
 
   @ApiProperty({
     required: false,
@@ -53,6 +51,12 @@ export class UpdateStep2Dto {
   @ValidateIf((o) => o.companyExists === 'yes')
   @IsInt()
   sectorId?: number;
+
+  @ApiProperty({ required: false, example: 'Autre secteur...' })
+  @ValidateIf((o) => o.companyExists === 'yes' && o.sectorId === -1)
+  @IsOptional()
+  @IsString()
+  otherCompanySector?: string;
 
   @ApiProperty({
     required: false,
@@ -137,6 +141,15 @@ export class UpdateStep2Dto {
   @IsOptional()
   @IsBoolean()
   affiliatedToCGA?: boolean; // Nouveau champ - Affilié à un Centre de Gestion Agréé
+
+  @ApiProperty({
+    required: false,
+    description:
+      "L'entreprise bénéficie-t-elle d'un service d'accompagnement ?",
+  })
+  @IsOptional()
+  @IsBoolean()
+  supportService?: boolean;
 
   // Effectifs détaillés
   @ApiProperty({ required: false, default: 0 })
@@ -234,11 +247,6 @@ export class UpdateStep2Dto {
   @IsOptional()
   companyAddressIsDifferent?: boolean;
 
-  @ApiProperty({ required: false })
-  @IsOptional()
-  @IsNumber()
-  totalEmployees?: number;
-
   // Indicateurs (existants)
   @ApiProperty({
     description: 'Entreprise dirigée par une femme ?',
@@ -263,4 +271,40 @@ export class UpdateStep2Dto {
   @IsOptional()
   @IsBoolean()
   hasClimateImpact?: boolean;
+
+  @ApiProperty({ required: false, default: 0 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  albinosEmployees?: number;
+
+  @ApiProperty({ required: false, default: 0 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  repatriatesEmployees?: number;
+
+  @ApiProperty({ required: false, default: 0 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  partTimeEmployees?: number;
+
+  @ApiProperty({ required: false, default: 0 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  albinosPartners?: number;
+
+  @ApiProperty({ required: false, default: 0 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  repatriatesPartners?: number;
+
+  @ApiProperty({ required: false, default: 0 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  totalEmployees?: number;
 }

@@ -245,6 +245,28 @@ export class Beneficiary {
   @Column({ name: 'has_estimated_cost', nullable: true })
   hasEstimatedCost?: boolean;
 
+  @Column({ name: 'planned_refugee_employees', default: 0 })
+  plannedRefugeeEmployees: number;
+
+  @Column({ name: 'planned_batwa_employees', default: 0 })
+  plannedBatwaEmployees: number;
+
+  @Column({ name: 'planned_disabled_employees', default: 0 })
+  plannedDisabledEmployees: number;
+
+  @Column({ name: 'planned_albinos_employees', default: 0 })
+  plannedAlbinosEmployees: number;
+
+  @Column({ name: 'planned_repatriates_employees', default: 0 })
+  plannedRepatriatesEmployees: number;
+
+  @Column({ name: 'planned_part_time_employees', default: 0 })
+  plannedPartTimeEmployees: number;
+
+  // ===== AUTRES CHAMPS =====
+  @Column({ name: 'idea_tested', nullable: true })
+  ideaTested?: boolean;
+
   @Column({
     name: 'total_project_cost',
     type: 'decimal',

@@ -504,15 +504,8 @@ export class EmailTemplatesService {
             <div class="info-row"><span class="label">Email :</span> ${data.email || ''}</div>
           </div>
           
-          <div class="steps">
-            <h3>Prochaines étapes :</h3>
-            <div class="step">✓ <strong>Pré-sélection des profils</strong> – ${data.datePreselection || '15-30 avril 2026'}</div>
-            <div class="step">✓ <strong>Formation</strong> (si pré-sélectionné) – ${data.dateFormation || '10-25 mai 2026'}</div>
-            <div class="step">✓ <strong>Soumission du plan d'affaires</strong> – ${data.dateSoumissionPlan || 'Juin 2026'}</div>
-          </div>
-          
           <p>Vous serez notifié(e) par <strong>email et SMS</strong> dès la publication des résultats de pré-sélection.</p>
-          <p><strong>Date estimée des résultats :</strong> ${data.dateResultatsPreselection || '30 avril 2026'}</p>
+          <p><strong>Date estimée des résultats :</strong> ${data.dateResultatsPreselection || '10 avril 2026'}</p>
           
           <div style="text-align: center;">
             <a href="#" class="button">Accéder à mon espace</a>

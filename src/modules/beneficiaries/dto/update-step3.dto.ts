@@ -167,4 +167,45 @@ export class UpdateStep3Dto {
   @IsOptional()
   @IsBoolean()
   isProfileCompleted?: boolean;
+
+  @ApiProperty({ required: false, default: 0 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  plannedRefugeeEmployees?: number;
+
+  @ApiProperty({ required: false, default: 0 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  plannedBatwaEmployees?: number;
+
+  @ApiProperty({ required: false, default: 0 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  plannedDisabledEmployees?: number;
+
+  @ApiProperty({ required: false, default: 0 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  plannedAlbinosEmployees?: number;
+
+  @ApiProperty({ required: false, default: 0 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  plannedRepatriatesEmployees?: number;
+
+  @ApiProperty({ required: false, default: 0 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  plannedPartTimeEmployees?: number;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsBoolean()
+  ideaTested?: boolean;
 }

@@ -114,8 +114,8 @@ export class ProfileCompletionService {
     if (company) {
       const requiredFields = [
         company.companyName,
-        company.taxIdNumber,
-        company.primarySectorId,
+        // company.taxIdNumber,
+        // company.primarySectorId,
         company.creationDate,
         company.permanentEmployees,
         company.activityDescription,
