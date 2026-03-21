@@ -1030,7 +1030,7 @@ export class BeneficiariesService {
               companyName: step2.companyName,
               taxIdNumber: step2.nif,
               creationDate: step2.creationYear
-                ? new Date(`${step2.creationYear}-01-01`)
+                ? new Date(step2.creationYear)
                 : null,
               primarySectorId: primarySectorId,
               otherCompanySector: otherCompanySector,
