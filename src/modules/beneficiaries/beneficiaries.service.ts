@@ -897,7 +897,7 @@ export class BeneficiariesService {
             beneficiary.company.taxIdNumber =
               step2.nif ?? beneficiary.company.taxIdNumber;
             beneficiary.company.creationDate = step2.creationYear
-              ? step2.creationYear
+              ? new Date(step2.creationYear)
               : beneficiary.company.creationDate;
             beneficiary.company.primarySectorId = primarySectorId;
             beneficiary.company.otherCompanySector =
