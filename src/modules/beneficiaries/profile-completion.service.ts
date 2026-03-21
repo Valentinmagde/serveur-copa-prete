@@ -165,6 +165,15 @@ export class ProfileCompletionService {
     // Vérifier que les CGU ont été acceptées
     const cguAccepted = !!user.cguAcceptedAt;
 
-    return allConsentsValid && cguAccepted;
+    const requiredFields = [
+      beneficiary.projectTitle,
+      beneficiary.projectObjective,
+      beneficiary.projectSectors,
+      beneficiary.mainActivities,
+    ];
+
+    const allFieldsPresent = requiredFields.every((field) => !!field);
+
+    return allConsentsValid && cguAccepted && allFieldsPresent;
   }
 }
