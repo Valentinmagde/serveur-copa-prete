@@ -511,10 +511,6 @@ export class EmailTemplatesService {
             <a href="#" class="button">Accéder à mon espace</a>
           </div>
           
-          <p style="margin-top: 20px;"><small>Votre numéro de dossier vous sera communiqué après la soumission de votre plan d'affaires.</small></p>
-          
-          // <p>Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur :<br>
-          // <a href="${this.baseUrl}/espace-mpme/tableau-de-bord">${this.baseUrl}/espace-mpme/tableau-de-bord</a></p>
         </div>
         
         <div class="footer">
