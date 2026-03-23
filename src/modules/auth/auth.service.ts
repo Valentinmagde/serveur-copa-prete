@@ -255,6 +255,7 @@ export class AuthService {
       const beneficiary = beneficiaryRepo.create({
         userId: savedUser.id,
         companyId: null,
+        copaEditionId: registerDto.copaEditionId,
         statusId: registeredStatus.id,
         category: 'BURUNDIAN',
       });

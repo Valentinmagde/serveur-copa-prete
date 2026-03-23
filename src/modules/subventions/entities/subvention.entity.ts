@@ -15,6 +15,7 @@ import { Status } from '../../reference/entities/status.entity';
 import { User } from '../../users/entities/user.entity';
 import { SubventionTranche } from './subvention-tranche.entity';
 import { CreatedJob } from './created-job.entity';
+import { CopaEdition } from '../../reference/entities/copa-edition.entity';
 
 @Entity('subventions')
 export class Subvention {
@@ -78,6 +79,13 @@ export class Subvention {
 
   @Column({ name: 'approval_date', nullable: true })
   approvalDate: Date;
+
+  @ManyToOne(() => CopaEdition)
+  @JoinColumn({ name: 'copa_edition_id' })
+  copaEdition: CopaEdition;
+
+  @Column({ name: 'copa_edition_id', nullable: true })
+  copaEditionId: number;
 
   @OneToMany(() => SubventionTranche, (tranche) => tranche.subvention)
   tranches: SubventionTranche[];

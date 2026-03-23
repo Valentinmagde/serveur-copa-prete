@@ -15,6 +15,7 @@ import { ConsentType } from './entities/consent-type.entity';
 import { BusinessPlanSectionType } from './entities/business-plan-section-type.entity';
 import { DocumentType } from '../documents/entities/document-type.entity';
 import { ComplaintType } from '../complaints/entities/complaint-type.entity';
+import { CopaPhase } from './entities/copa-phase.entity';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { ComplaintType } from '../complaints/entities/complaint-type.entity';
       LegalForm,
       Status,
       CopaEdition,
+      CopaPhase,
       Role,
       ConsentType,
       BusinessPlanSectionType,

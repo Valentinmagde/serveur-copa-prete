@@ -77,6 +77,7 @@ export class ReferenceController {
     return this.referenceService.getStatusesByEntityType(entityType);
   }
 
+  @Public()
   @Get('copa-editions')
   @ApiOperation({ summary: 'Get COPA editions' })
   @ApiResponse({ status: 200 })
@@ -84,11 +85,28 @@ export class ReferenceController {
     return this.referenceService.getCopaEditions(active === 'true');
   }
 
+  @Public()
   @Get('copa-editions/current')
   @ApiOperation({ summary: 'Get current active COPA edition' })
   @ApiResponse({ status: 200 })
   async getCurrentCopaEdition() {
-    return this.referenceService.getCurrentCopaEdition();
+    return this.referenceService.getCurrentCopaEditions();
+  }
+
+  @Public()
+  @Get('copa-phases')
+  @ApiOperation({ summary: 'Get COPA phases' })
+  @ApiResponse({ status: 200 })
+  async getCopaPhases(@Query('active') active?: string) {
+    return this.referenceService.getCopaPhases(active === 'true');
+  }
+
+  @Public()
+  @Get('copa-phases/current')
+  @ApiOperation({ summary: 'Get current active COPA phases' })
+  @ApiResponse({ status: 200 })
+  async getCurrentCopaPhase() {
+    return this.referenceService.getCurrentCopaPhases();
   }
 
   @Get('roles')

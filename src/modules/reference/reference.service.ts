@@ -13,6 +13,7 @@ import { CopaEdition } from './entities/copa-edition.entity';
 import { Role } from './entities/role.entity';
 import { ConsentType } from './entities/consent-type.entity';
 import { BusinessPlanSectionType } from './entities/business-plan-section-type.entity';
+import { CopaPhase } from './entities/copa-phase.entity';
 
 @Injectable()
 export class ReferenceService {
@@ -35,6 +36,8 @@ export class ReferenceService {
     private readonly statusRepository: Repository<Status>,
     @InjectRepository(CopaEdition)
     private readonly copaEditionRepository: Repository<CopaEdition>,
+    @InjectRepository(CopaPhase)
+    private readonly copaPhaseRepository: Repository<CopaPhase>,
     @InjectRepository(Role)
     private readonly roleRepository: Repository<Role>,
     @InjectRepository(ConsentType)
@@ -113,10 +116,30 @@ export class ReferenceService {
     });
   }
 
-  async getCurrentCopaEdition(): Promise<CopaEdition | null> {
-    return this.copaEditionRepository.findOne({
+  async getCurrentCopaEditions(): Promise<CopaEdition[] | null> {
+    return this.copaEditionRepository.find({
       where: { isActive: true },
       order: { year: 'DESC' },
+    });
+  }
+
+  async getCopaPhases(activeOnly: boolean = false): Promise<CopaPhase[]> {
+    const where: any = {};
+    if (activeOnly) {
+      where.isActive = true;
+    }
+    return this.copaPhaseRepository.find({
+      where,
+      order: { startDate: 'DESC' },
+      relations: ['copaEdition'],
+    });
+  }
+
+  async getCurrentCopaPhases(): Promise<CopaPhase[] | null> {
+    return this.copaPhaseRepository.find({
+      where: { isActive: true },
+      order: { startDate: 'DESC' },
+      relations: ['copaEdition'],
     });
   }
 

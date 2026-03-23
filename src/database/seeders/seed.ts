@@ -435,6 +435,141 @@ async function seed() {
       console.log('Admin user created');
     }
 
+    // Vérifier si les données existent déjà
+    const editionsExist = await queryRunner.manager.query(
+      `SELECT COUNT(*) FROM copa_editions`,
+    );
+
+    if (editionsExist[0].count === '0') {
+      // Insérer les éditions COPA
+      await queryRunner.manager.query(`
+        INSERT INTO copa_editions 
+        (code, name, name_fr, name_rn, year, registration_start_date, registration_end_date, 
+        submission_start_date, submission_end_date, evaluation_start_date, evaluation_end_date,
+        selection_committee_date, results_publication_date, total_budget, expected_winners_count,
+        regulations_url, is_active) 
+        VALUES
+        (
+          'COPA-2026-FIRST-ROUND',
+          'COPA 2026 FIRST ROUND - Business Plan Competition',
+          'COPA 2026 PREMIERE COHORTE - Concours des Plans d''Affaires',
+          'COPA 2026 Icohorte ca mbere - Amarushanwa y’Imishinga y’Ubucuruzi',
+          2026,
+          '2026-03-16', '2026-04-06',
+          '2026-04-16', '2026-05-30',
+          '2026-06-01', '2026-07-15',
+          '2026-07-20', '2026-07-31',
+          500000000, 50,
+          '/uploads/regulations/copa-2026-first-round.pdf',
+          true
+        )
+      `);
+
+      console.log('Copa editions seeded');
+    }
+
+    // Vérifier si les phases existent déjà
+    const phasesExist = await queryRunner.manager.query(
+      `SELECT COUNT(*) FROM copa_phases`,
+    );
+
+    if (phasesExist[0].count === '0') {
+      // Récupérer les IDs des éditions
+      const editions = await queryRunner.manager.query(`
+        SELECT id, code FROM copa_editions
+      `);
+
+      const editionsMap = new Map();
+      editions.forEach((edition) => {
+        editionsMap.set(edition.code, edition.id);
+      });
+
+      // Insérer les phases pour COPA-2026
+      const copa2026Id = editionsMap.get('COPA-2026-FIRST-ROUND');
+      if (copa2026Id) {
+        await queryRunner.manager.query(`
+          INSERT INTO copa_phases 
+          (copa_edition_id, phase_code, phase_name, phase_name_fr, phase_name_rn, 
+          phase_description, phase_description_fr, phase_description_rn,
+          start_date, end_date, is_active, display_order, 
+          requires_approval, auto_transition, transition_days, metadata)
+          VALUES
+          (
+            ${copa2026Id}, 'REGISTRATION',
+            'Registration', 'Inscription', 'Kwiyandikisha',
+            'Beneficiary registration and application submission',
+            'Inscription des bénéficiaires et soumission des candidatures',
+            'Kwiyandikisha n’ugutanga amakuru y’ishirahamwe',
+            '2026-03-16', '2026-04-06', true, 1,
+            false, true, 0,
+            '{"requiresCompanyProfile": true, "requiresBeneficiaryProfile": true, "maxApplicants": 500}'::jsonb
+          ),
+          (
+            ${copa2026Id}, 'BUSINESS_PLAN_SUBMISSION',
+            'Business Plan Submission', 'Soumission du plan d''affaires', 'Gutanga umushinga w’ubucuruzi',
+            'Submission of detailed business plan',
+            'Soumission du plan d''affaires détaillé',
+            'Gutanga umushinga w’ubucuruzi mu buryo burambuye',
+            '2026-04-16', '2026-05-30', false, 2,
+            false, true, 0,
+            '{"requiresBusinessPlan": true, "maxPages": 30, "requiredSections": ["executive_summary", "market_analysis", "financial_projections"]}'::jsonb
+          ),
+          (
+            ${copa2026Id}, 'EVALUATION',
+            'Evaluation', 'Évaluation', 'Isuzuma',
+            'Business plan evaluation by technical committee',
+            'Évaluation des plans d''affaires par le comité technique',
+            'Isuzuma ry’imishinga y’ubucuruzi n’abagize komite y’ubuhanga',
+            '2026-06-01', '2026-07-15', false, 3,
+            true, false, NULL,
+            '{"minEvaluators": 2, "maxEvaluators": 3, "evaluationCriteria": [{"name": "economic_viability", "weight": 30}, {"name": "innovation", "weight": 25}, {"name": "social_impact", "weight": 20}, {"name": "environmental_impact", "weight": 15}, {"name": "implementation_capacity", "weight": 10}]}'::jsonb
+          ),
+          (
+            ${copa2026Id}, 'SELECTION',
+            'Selection', 'Sélection', 'Gutoranya',
+            'Final selection by the selection committee',
+            'Sélection finale par le comité de sélection',
+            'Gutoranya mu mukino wa nyuma n’abagize komite y’itoranywa',
+            '2026-07-16', '2026-07-31', false, 4,
+            true, false, NULL,
+            '{"selectionCommitteeMembers": 7, "quorumRequired": 5, "selectionCriteria": [{"name": "evaluation_score", "weight": 70}, {"name": "committee_vote", "weight": 30}]}'::jsonb
+          ),
+          (
+            ${copa2026Id}, 'AWARDING',
+            'Awarding', 'Attribution', 'Itangwa ry’impano',
+            'Agreement signing and subsidy disbursement',
+            'Signature des conventions et versement des subventions',
+            'Gusinyisha amasezerano no gutanga inkunga',
+            '2026-08-01', '2026-10-31', false, 5,
+            true, false, NULL,
+            '{"requiresAgreementSignature": true, "requiresBankAccount": true, "disbursementSchedule": [{"percentage": 40, "condition": "signature_convention"}, {"percentage": 30, "condition": "rapport_trimestriel"}, {"percentage": 30, "condition": "rapport_final"}]}'::jsonb
+          ),
+          (
+            ${copa2026Id}, 'MENTORING',
+            'Mentoring', 'Accompagnement', 'Ubuyobozi',
+            'Beneficiary mentoring and support',
+            'Accompagnement des bénéficiaires par des mentors',
+            'Ubuyobozi n’inkunga ku banywanyi',
+            '2026-08-01', '2027-07-31', false, 6,
+            false, true, 0,
+            '{"mentorRatio": 5, "minMentoringSessions": 6, "sessionFrequency": "monthly"}'::jsonb
+          ),
+          (
+            ${copa2026Id}, 'MONITORING',
+            'Monitoring', 'Suivi', 'Gukurikirana',
+            'Project monitoring and evaluation',
+            'Suivi et évaluation des projets financés',
+            'Gukurikirana n’isuzuma ry’imishinga y’inkunga',
+            '2026-08-01', '2027-12-31', false, 7,
+            false, true, 0,
+            '{"reportingFrequency": "quarterly", "monitoringIndicators": ["jobs_created", "revenue_growth", "social_impact", "environmental_impact"], "siteVisitsRequired": true}'::jsonb
+          );
+        `);
+      }
+
+      console.log('Copa phases seeded');
+    }
+
     await queryRunner.commitTransaction();
     console.log('Seeding completed successfully');
   } catch (error) {

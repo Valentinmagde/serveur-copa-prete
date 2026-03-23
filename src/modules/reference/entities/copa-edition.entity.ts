@@ -17,6 +17,12 @@ export class CopaEdition {
   @Column()
   name: string;
 
+  @Column({ name: 'name_fr', nullable: true })
+  nameFr: string;
+
+  @Column({ name: 'name_rn', nullable: true })
+  nameRn: string;
+
   @Column()
   year: number;
 

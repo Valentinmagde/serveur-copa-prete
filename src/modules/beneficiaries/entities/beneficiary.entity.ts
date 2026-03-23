@@ -16,6 +16,7 @@ import { BusinessPlan } from '../../business-plans/entities/business-plan.entity
 import { TrainingParticipation } from '../../training/entities/training-participation.entity';
 import { Mentorship } from '../../mentoring/entities/mentorship.entity';
 import { Subvention } from '../../subventions/entities/subvention.entity';
+import { CopaEdition } from '../../reference/entities/copa-edition.entity';
 
 @Entity('beneficiaries')
 export class Beneficiary {
@@ -297,6 +298,13 @@ export class Beneficiary {
     nullable: true,
   })
   applicationSubmittedAt: Date;
+
+  @ManyToOne(() => CopaEdition)
+  @JoinColumn({ name: 'copa_edition_id' })
+  copaEdition: CopaEdition;
+
+  @Column({ name: 'copa_edition_id', nullable: true })
+  copaEditionId: number;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

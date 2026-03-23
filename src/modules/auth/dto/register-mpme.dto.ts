@@ -2,6 +2,7 @@ import { ApiProperty } from '@nestjs/swagger';
 import {
   IsBoolean,
   IsEmail,
+  IsNumber,
   IsString,
   Matches,
   MinLength,
@@ -51,6 +52,10 @@ export class RegistrationMpmeDto {
   @IsString()
   @MinLength(8)
   passwordConfirmation: string;
+
+  @ApiProperty({ example: '1' })
+  @IsNumber()
+  copaEditionId: number;
 
   @ApiProperty({
     description: "Acceptation des Conditions Générales d'Utilisation",
