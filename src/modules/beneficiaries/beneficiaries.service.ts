@@ -1080,7 +1080,7 @@ export class BeneficiariesService {
           }
         } else if (step2.companyExists === 'no' && beneficiary?.company) {
           // Supprimer l'entreprise si l'utilisateur n'en a plus
-          beneficiary.companyId = null;
+          // beneficiary.companyId = null;
         }
 
         if (step2?.companyStatus) {
