@@ -104,9 +104,9 @@ export class ProfileCompletionService {
 
   private isStep2Complete(beneficiary: Beneficiary): boolean {
     // Si pas d'entreprise (project), l'étape 2 est considérée comme complète
-    if (beneficiary.companyType === 'project') {
-      return true;
-    }
+    // if (beneficiary.companyType === 'project') {
+    //   return true;
+    // }
 
     const company = beneficiary.company;
 
@@ -117,7 +117,7 @@ export class ProfileCompletionService {
         // company.taxIdNumber,
         // company.primarySectorId,
         company.creationDate,
-        company.permanentEmployees,
+        // company.permanentEmployees,
         company.activityDescription,
       ];
 

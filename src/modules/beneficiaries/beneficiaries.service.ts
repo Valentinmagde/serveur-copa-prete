@@ -857,230 +857,225 @@ export class BeneficiariesService {
       if (step2) {
         const beneficiary = existingBeneficiary;
 
-        if (step2.companyExists === 'yes') {
-          const companyRepo = queryRunner.manager.getRepository(Company);
-          const addressRepo = queryRunner.manager.getRepository(Address);
+        const companyRepo = queryRunner.manager.getRepository(Company);
+        const addressRepo = queryRunner.manager.getRepository(Address);
 
-          // Gestion de l'adresse de l'entreprise
-          let companyAddressId = null;
-          if (
-            step2.companyProvinceId ||
-            step2.companyCommuneId ||
-            step2.companyNeighborhood ||
-            step2.companyZone
-          ) {
-            const address = addressRepo.create({
-              provinceId: step2.companyProvinceId,
-              communeId: step2.companyCommuneId,
-              neighborhood: step2.companyNeighborhood,
-              street: step2.companyZone,
-            });
-            const savedAddress = await queryRunner.manager.save(address);
-            companyAddressId = savedAddress.id as any;
+        // Gestion de l'adresse de l'entreprise
+        let companyAddressId = null;
+        if (
+          step2.companyProvinceId ||
+          step2.companyCommuneId ||
+          step2.companyNeighborhood ||
+          step2.companyZone
+        ) {
+          const address = addressRepo.create({
+            provinceId: step2.companyProvinceId,
+            communeId: step2.companyCommuneId,
+            neighborhood: step2.companyNeighborhood,
+            street: step2.companyZone,
+          });
+          const savedAddress = await queryRunner.manager.save(address);
+          companyAddressId = savedAddress.id as any;
+        }
+
+        let primarySectorId: any = step2.sectorId;
+        let otherCompanySector: any = step2.otherCompanySector;
+
+        // Si sectorId = -1 (Autre), on le met à null pour ne pas violer la FK
+        if (step2.sectorId === -1) {
+          primarySectorId = null;
+          otherCompanySector = step2.otherCompanySector;
+        } else {
+          otherCompanySector = null;
+        }
+
+        if (beneficiary?.company) {
+          // Mise à jour de l'entreprise existante
+          beneficiary.company.companyName =
+            step2.companyName ?? beneficiary.company.companyName;
+          beneficiary.company.taxIdNumber =
+            step2.nif ?? beneficiary.company.taxIdNumber;
+          beneficiary.company.creationDate = step2.creationYear
+            ? new Date(step2.creationYear)
+            : beneficiary.company.creationDate;
+          beneficiary.company.primarySectorId = primarySectorId;
+          beneficiary.company.otherCompanySector =
+            otherCompanySector ?? beneficiary.company.otherCompanySector;
+          beneficiary.company.activityDescription =
+            step2.activityDescription ??
+            beneficiary.company.activityDescription;
+          beneficiary.company.permanentEmployees =
+            step2.employeeCount ?? beneficiary.company.permanentEmployees;
+          beneficiary.company.isLedByWoman =
+            step2.isWomanLed ?? beneficiary.company.isLedByWoman;
+          beneficiary.company.isLedByRefugee =
+            step2.isRefugeeLed ?? beneficiary.company.isLedByRefugee;
+          beneficiary.company.hasPositiveClimateImpact =
+            step2.hasClimateImpact ??
+            beneficiary.company.hasPositiveClimateImpact;
+          beneficiary.company.revenueYearN1 =
+            step2.annualRevenue ?? beneficiary.company.revenueYearN1;
+          beneficiary.company.companyType =
+            step2.companyStatus ?? beneficiary.company.companyType;
+
+          beneficiary.company.legalStatus =
+            step2.legalStatus ?? beneficiary.company.legalStatus;
+          beneficiary.company.legalStatusOther =
+            step2.legalStatusOther ?? beneficiary.company.legalStatusOther;
+          beneficiary.company.affiliatedToCGA =
+            step2.affiliatedToCGA ?? beneficiary.company.affiliatedToCGA;
+
+          // Employés - 0 est une valeur valide
+          beneficiary.company.femaleEmployees =
+            step2.femaleEmployees !== undefined
+              ? step2.femaleEmployees
+              : beneficiary.company.femaleEmployees;
+          beneficiary.company.maleEmployees =
+            step2.maleEmployees !== undefined
+              ? step2.maleEmployees
+              : beneficiary.company.maleEmployees;
+          beneficiary.company.refugeeEmployees =
+            step2.refugeeEmployees !== undefined
+              ? step2.refugeeEmployees
+              : beneficiary.company.refugeeEmployees;
+          beneficiary.company.batwaEmployees =
+            step2.batwaEmployees !== undefined
+              ? step2.batwaEmployees
+              : beneficiary.company.batwaEmployees;
+          beneficiary.company.disabledEmployees =
+            step2.disabledEmployees !== undefined
+              ? step2.disabledEmployees
+              : beneficiary.company.disabledEmployees;
+          beneficiary.company.albinosEmployees =
+            step2.albinosEmployees !== undefined
+              ? step2.albinosEmployees
+              : beneficiary.company.albinosEmployees;
+          beneficiary.company.repatriatesEmployees =
+            step2.repatriatesEmployees !== undefined
+              ? step2.repatriatesEmployees
+              : beneficiary.company.repatriatesEmployees;
+          beneficiary.company.partTimeEmployees =
+            step2.partTimeEmployees !== undefined
+              ? step2.partTimeEmployees
+              : beneficiary.company.partTimeEmployees;
+
+          // Associés
+          beneficiary.company.associatesCount =
+            step2.associatesCount ?? beneficiary.company.associatesCount;
+          beneficiary.company.associatesCountOther =
+            step2.associatesCountOther ??
+            beneficiary.company.associatesCountOther;
+          beneficiary.company.femalePartners =
+            step2.femalePartners !== undefined
+              ? step2.femalePartners
+              : beneficiary.company.femalePartners;
+          beneficiary.company.malePartners =
+            step2.malePartners !== undefined
+              ? step2.malePartners
+              : beneficiary.company.malePartners;
+          beneficiary.company.refugeePartners =
+            step2.refugeePartners !== undefined
+              ? step2.refugeePartners
+              : beneficiary.company.refugeePartners;
+          beneficiary.company.batwaPartners =
+            step2.batwaPartners !== undefined
+              ? step2.batwaPartners
+              : beneficiary.company.batwaPartners;
+          beneficiary.company.disabledPartners =
+            step2.disabledPartners !== undefined
+              ? step2.disabledPartners
+              : beneficiary.company.disabledPartners;
+          beneficiary.company.albinosPartners =
+            step2.albinosPartners !== undefined
+              ? step2.albinosPartners
+              : beneficiary.company.albinosPartners;
+          beneficiary.company.repatriatesPartners =
+            step2.repatriatesPartners !== undefined
+              ? step2.repatriatesPartners
+              : beneficiary.company.repatriatesPartners;
+
+          // Informations bancaires
+          beneficiary.company.hasBankAccount =
+            step2.hasBankAccount ?? beneficiary.company.hasBankAccount;
+          beneficiary.company.hasBankCredit =
+            step2.hasBankCredit ?? beneficiary.company.hasBankCredit;
+          beneficiary.company.bankCreditAmount =
+            step2.bankCreditAmount ?? beneficiary.company.bankCreditAmount;
+          beneficiary.company.companyPhone =
+            step2.companyPhone ?? beneficiary.company.companyPhone;
+          beneficiary.company.companyEmail =
+            step2.companyEmail ?? beneficiary.company.companyEmail;
+          beneficiary.company.companyAddressIsDifferent =
+            step2.companyAddressIsDifferent ??
+            beneficiary.company.companyAddressIsDifferent;
+          beneficiary.company.totalEmployees =
+            step2.totalEmployees !== undefined
+              ? step2.totalEmployees
+              : beneficiary.company.totalEmployees;
+          beneficiary.company.supportService =
+            step2.supportService ?? beneficiary.company.supportService;
+
+          if (companyAddressId) {
+            beneficiary.company.addressId = companyAddressId;
           }
 
-          let primarySectorId: any = step2.sectorId;
-          let otherCompanySector: any = step2.otherCompanySector;
-
-          // Si sectorId = -1 (Autre), on le met à null pour ne pas violer la FK
-          if (step2.sectorId === -1) {
-            primarySectorId = null;
-            otherCompanySector = step2.otherCompanySector;
-          } else {
-            otherCompanySector = null;
-          }
-
-          if (beneficiary?.company) {
-            // Mise à jour de l'entreprise existante
-            beneficiary.company.companyName =
-              step2.companyName ?? beneficiary.company.companyName;
-            beneficiary.company.taxIdNumber =
-              step2.nif ?? beneficiary.company.taxIdNumber;
-            beneficiary.company.creationDate = step2.creationYear
+          await queryRunner.manager.save(beneficiary.company);
+        } else if (beneficiary) {
+          this.logger.log(
+            `Creating company for beneficiary ${beneficiary.id}...`,
+          );
+          // Création d'une nouvelle entreprise
+          const company = companyRepo.create({
+            companyName: step2.companyName,
+            taxIdNumber: step2.nif,
+            creationDate: step2.creationYear
               ? new Date(step2.creationYear)
-              : beneficiary.company.creationDate;
-            beneficiary.company.primarySectorId = primarySectorId;
-            beneficiary.company.otherCompanySector =
-              otherCompanySector ?? beneficiary.company.otherCompanySector;
-            beneficiary.company.activityDescription =
-              step2.activityDescription ??
-              beneficiary.company.activityDescription;
-            beneficiary.company.permanentEmployees =
-              step2.employeeCount ?? beneficiary.company.permanentEmployees;
-            beneficiary.company.isLedByWoman =
-              step2.isWomanLed ?? beneficiary.company.isLedByWoman;
-            beneficiary.company.isLedByRefugee =
-              step2.isRefugeeLed ?? beneficiary.company.isLedByRefugee;
-            beneficiary.company.hasPositiveClimateImpact =
-              step2.hasClimateImpact ??
-              beneficiary.company.hasPositiveClimateImpact;
-            beneficiary.company.revenueYearN1 =
-              step2.annualRevenue ?? beneficiary.company.revenueYearN1;
-            beneficiary.company.companyType =
-              step2.companyStatus ?? beneficiary.company.companyType;
-
-            beneficiary.company.legalStatus =
-              step2.legalStatus ?? beneficiary.company.legalStatus;
-            beneficiary.company.legalStatusOther =
-              step2.legalStatusOther ?? beneficiary.company.legalStatusOther;
-            beneficiary.company.affiliatedToCGA =
-              step2.affiliatedToCGA ?? beneficiary.company.affiliatedToCGA;
-
-            // Employés - 0 est une valeur valide
-            beneficiary.company.femaleEmployees =
-              step2.femaleEmployees !== undefined
-                ? step2.femaleEmployees
-                : beneficiary.company.femaleEmployees;
-            beneficiary.company.maleEmployees =
-              step2.maleEmployees !== undefined
-                ? step2.maleEmployees
-                : beneficiary.company.maleEmployees;
-            beneficiary.company.refugeeEmployees =
-              step2.refugeeEmployees !== undefined
-                ? step2.refugeeEmployees
-                : beneficiary.company.refugeeEmployees;
-            beneficiary.company.batwaEmployees =
-              step2.batwaEmployees !== undefined
-                ? step2.batwaEmployees
-                : beneficiary.company.batwaEmployees;
-            beneficiary.company.disabledEmployees =
-              step2.disabledEmployees !== undefined
-                ? step2.disabledEmployees
-                : beneficiary.company.disabledEmployees;
-            beneficiary.company.albinosEmployees =
-              step2.albinosEmployees !== undefined
-                ? step2.albinosEmployees
-                : beneficiary.company.albinosEmployees;
-            beneficiary.company.repatriatesEmployees =
-              step2.repatriatesEmployees !== undefined
-                ? step2.repatriatesEmployees
-                : beneficiary.company.repatriatesEmployees;
-            beneficiary.company.partTimeEmployees =
-              step2.partTimeEmployees !== undefined
-                ? step2.partTimeEmployees
-                : beneficiary.company.partTimeEmployees;
-
-            // Associés
-            beneficiary.company.associatesCount =
-              step2.associatesCount ?? beneficiary.company.associatesCount;
-            beneficiary.company.associatesCountOther =
-              step2.associatesCountOther ??
-              beneficiary.company.associatesCountOther;
-            beneficiary.company.femalePartners =
-              step2.femalePartners !== undefined
-                ? step2.femalePartners
-                : beneficiary.company.femalePartners;
-            beneficiary.company.malePartners =
-              step2.malePartners !== undefined
-                ? step2.malePartners
-                : beneficiary.company.malePartners;
-            beneficiary.company.refugeePartners =
-              step2.refugeePartners !== undefined
-                ? step2.refugeePartners
-                : beneficiary.company.refugeePartners;
-            beneficiary.company.batwaPartners =
-              step2.batwaPartners !== undefined
-                ? step2.batwaPartners
-                : beneficiary.company.batwaPartners;
-            beneficiary.company.disabledPartners =
-              step2.disabledPartners !== undefined
-                ? step2.disabledPartners
-                : beneficiary.company.disabledPartners;
-            beneficiary.company.albinosPartners =
-              step2.albinosPartners !== undefined
-                ? step2.albinosPartners
-                : beneficiary.company.albinosPartners;
-            beneficiary.company.repatriatesPartners =
-              step2.repatriatesPartners !== undefined
-                ? step2.repatriatesPartners
-                : beneficiary.company.repatriatesPartners;
-
-            // Informations bancaires
-            beneficiary.company.hasBankAccount =
-              step2.hasBankAccount ?? beneficiary.company.hasBankAccount;
-            beneficiary.company.hasBankCredit =
-              step2.hasBankCredit ?? beneficiary.company.hasBankCredit;
-            beneficiary.company.bankCreditAmount =
-              step2.bankCreditAmount ?? beneficiary.company.bankCreditAmount;
-            beneficiary.company.companyPhone =
-              step2.companyPhone ?? beneficiary.company.companyPhone;
-            beneficiary.company.companyEmail =
-              step2.companyEmail ?? beneficiary.company.companyEmail;
-            beneficiary.company.companyAddressIsDifferent =
-              step2.companyAddressIsDifferent ??
-              beneficiary.company.companyAddressIsDifferent;
-            beneficiary.company.totalEmployees =
-              step2.totalEmployees !== undefined
-                ? step2.totalEmployees
-                : beneficiary.company.totalEmployees;
-            beneficiary.company.supportService =
-              step2.supportService ?? beneficiary.company.supportService;
-
-            if (companyAddressId) {
-              beneficiary.company.addressId = companyAddressId;
-            }
-
-            await queryRunner.manager.save(beneficiary.company);
-          } else if (beneficiary) {
-            this.logger.log(
-              `Creating company for beneficiary ${beneficiary.id}...`,
-            );
-            // Création d'une nouvelle entreprise
-            const company = companyRepo.create({
-              companyName: step2.companyName,
-              taxIdNumber: step2.nif,
-              creationDate: step2.creationYear
-                ? new Date(step2.creationYear)
-                : null,
-              primarySectorId: primarySectorId,
-              otherCompanySector: otherCompanySector,
-              activityDescription: step2.activityDescription,
-              permanentEmployees: step2.employeeCount || 0,
-              isLedByWoman: step2.isWomanLed || false,
-              isLedByRefugee: step2.isRefugeeLed || false,
-              hasPositiveClimateImpact: step2.hasClimateImpact || false,
-              revenueYearN1: step2.annualRevenue || 0,
-              companyType: step2.companyStatus,
-              addressId: companyAddressId,
-              statusId: await this.getStatusId(
-                'PENDING_VALIDATION',
-                'COMPANY',
-                queryRunner,
-              ),
-              legalStatus: step2.legalStatus,
-              legalStatusOther: step2.legalStatusOther,
-              affiliatedToCGA: step2.affiliatedToCGA,
-              femaleEmployees: step2.femaleEmployees || 0,
-              maleEmployees: step2.maleEmployees || 0,
-              refugeeEmployees: step2.refugeeEmployees || 0,
-              batwaEmployees: step2.batwaEmployees || 0,
-              disabledEmployees: step2.disabledEmployees || 0,
-              albinosEmployees: step2.albinosEmployees || 0,
-              repatriatesEmployees: step2.repatriatesEmployees || 0,
-              partTimeEmployees: step2.partTimeEmployees || 0,
-              associatesCount: step2.associatesCount,
-              associatesCountOther: step2.associatesCountOther,
-              femalePartners: step2.femalePartners || 0,
-              malePartners: step2.malePartners || 0,
-              refugeePartners: step2.refugeePartners || 0,
-              batwaPartners: step2.batwaPartners || 0,
-              disabledPartners: step2.disabledPartners || 0,
-              albinosPartners: step2.albinosPartners || 0,
-              repatriatesPartners: step2.repatriatesPartners || 0,
-              hasBankAccount: step2.hasBankAccount,
-              hasBankCredit: step2.hasBankCredit,
-              bankCreditAmount: step2.bankCreditAmount,
-              companyPhone: step2.companyPhone,
-              companyEmail: step2.companyEmail,
-              companyAddressIsDifferent: step2.companyAddressIsDifferent,
-              totalEmployees: step2.totalEmployees,
-            } as any);
-            const savedCompany: any = await queryRunner.manager.save(company);
-            beneficiary.companyId = savedCompany.id;
-          }
-        } else if (step2.companyExists === 'no' && beneficiary?.company) {
-          // Supprimer l'entreprise si l'utilisateur n'en a plus
-          // beneficiary.companyId = null;
+              : null,
+            primarySectorId: primarySectorId,
+            otherCompanySector: otherCompanySector,
+            activityDescription: step2.activityDescription,
+            permanentEmployees: step2.employeeCount || 0,
+            isLedByWoman: step2.isWomanLed || false,
+            isLedByRefugee: step2.isRefugeeLed || false,
+            hasPositiveClimateImpact: step2.hasClimateImpact || false,
+            revenueYearN1: step2.annualRevenue || 0,
+            companyType: step2.companyStatus,
+            addressId: companyAddressId,
+            statusId: await this.getStatusId(
+              'PENDING_VALIDATION',
+              'COMPANY',
+              queryRunner,
+            ),
+            legalStatus: step2.legalStatus,
+            legalStatusOther: step2.legalStatusOther,
+            affiliatedToCGA: step2.affiliatedToCGA,
+            femaleEmployees: step2.femaleEmployees || 0,
+            maleEmployees: step2.maleEmployees || 0,
+            refugeeEmployees: step2.refugeeEmployees || 0,
+            batwaEmployees: step2.batwaEmployees || 0,
+            disabledEmployees: step2.disabledEmployees || 0,
+            albinosEmployees: step2.albinosEmployees || 0,
+            repatriatesEmployees: step2.repatriatesEmployees || 0,
+            partTimeEmployees: step2.partTimeEmployees || 0,
+            associatesCount: step2.associatesCount,
+            associatesCountOther: step2.associatesCountOther,
+            femalePartners: step2.femalePartners || 0,
+            malePartners: step2.malePartners || 0,
+            refugeePartners: step2.refugeePartners || 0,
+            batwaPartners: step2.batwaPartners || 0,
+            disabledPartners: step2.disabledPartners || 0,
+            albinosPartners: step2.albinosPartners || 0,
+            repatriatesPartners: step2.repatriatesPartners || 0,
+            hasBankAccount: step2.hasBankAccount,
+            hasBankCredit: step2.hasBankCredit,
+            bankCreditAmount: step2.bankCreditAmount,
+            companyPhone: step2.companyPhone,
+            companyEmail: step2.companyEmail,
+            companyAddressIsDifferent: step2.companyAddressIsDifferent,
+            totalEmployees: step2.totalEmployees,
+          } as any);
+          const savedCompany: any = await queryRunner.manager.save(company);
+          beneficiary.companyId = savedCompany.id;
         }
 
         if (step2?.companyStatus) {
