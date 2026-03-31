@@ -150,7 +150,7 @@ export class DocumentsService {
     // 4. Générer un nom de fichier unique
     const timestamp = Date.now();
     const extension = file.originalname.split('.').pop();
-    const filename = `candidat-${uploadDto.entityId}-${timestamp}.${extension}`;
+    const filename = `${uploadDto.documentKey}-${uploadDto.entityId}-${timestamp}.${extension}`;
     const folder = `candidatures/${uploadDto.entityId}`;
 
     // 5. Upload vers S3
