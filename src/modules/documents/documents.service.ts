@@ -147,12 +147,25 @@ export class DocumentsService {
     // Generate filename
     const storedFilename = `${Date.now()}-${crypto.randomBytes(16).toString('hex')}.${fileExtension}`;
 
-    // Upload to S3 or local storage
+    // 4. Générer un nom de fichier unique
+    const timestamp = Date.now();
+    const extension = file.originalname.split('.').pop();
+    const filename = `candidat-${uploadDto.entityId}-${timestamp}.${extension}`;
+    const folder = `candidatures/${uploadDto.entityId}`;
+
+    // 5. Upload vers S3
     const filePath = await this.s3Service.uploadFile(
       file.buffer,
-      storedFilename,
+      `${folder}/${filename}`,
       file.mimetype,
     );
+
+    // Upload to S3 or local storage
+    // const filePath = await this.s3Service.uploadFile(
+    //   file.buffer,
+    //   storedFilename,
+    //   file.mimetype,
+    // );
 
     // Create document record
     const documentData = {
