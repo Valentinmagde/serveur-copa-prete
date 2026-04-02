@@ -5,7 +5,7 @@ export class UserResponseDto {
   id: number;
 
   @ApiProperty()
-  uuid: string;
+  uuid?: string;
 
   @ApiProperty()
   email: string;
@@ -17,29 +17,41 @@ export class UserResponseDto {
   lastName: string;
 
   @ApiProperty()
-  birthDate: Date;
+  birthDate?: Date;
 
   @ApiProperty()
-  phoneNumber: string;
+  phoneNumber?: string;
 
   @ApiProperty()
-  nationality: string;
+  nationality?: string;
 
   @ApiProperty()
-  isRefugee: boolean;
+  role?: string;
 
   @ApiProperty()
-  isActive: boolean;
+  roleCode?: string;
 
   @ApiProperty()
-  isVerified: boolean;
+  profilePhotoUrl?: string;
 
   @ApiProperty()
-  isBlocked: boolean;
+  status?: string;
 
   @ApiProperty()
-  createdAt: Date;
+  isRefugee?: boolean;
 
   @ApiProperty()
-  updatedAt: Date;
+  isActive?: boolean;
+
+  @ApiProperty()
+  isVerified?: boolean;
+
+  @ApiProperty()
+  isBlocked?: boolean;
+
+  @ApiProperty()
+  createdAt?: Date;
+
+  @ApiProperty()
+  updatedAt?: Date;
 }

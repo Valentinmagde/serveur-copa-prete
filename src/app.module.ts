@@ -25,6 +25,7 @@ import { DocumentsModule } from './modules/documents/documents.module';
 import { ReferenceModule } from './modules/reference/reference.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { RedisModule } from '@nestjs-modules/ioredis';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -82,6 +83,7 @@ import { RedisModule } from '@nestjs-modules/ioredis';
     DocumentsModule,
     ReferenceModule,
     AdminModule,
+    DashboardModule,
   ],
 })
 export class AppModule {}

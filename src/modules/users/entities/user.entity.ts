@@ -56,6 +56,9 @@ export class User {
   @Column({ nullable: true, name: 'profile_photo_url' })
   profilePhotoUrl: string;
 
+  @Column({ nullable: true, name: 'bio' })
+  bio: string;
+
   @Column({ nullable: true, name: 'id_document_type' })
   idDocumentType: string;
 

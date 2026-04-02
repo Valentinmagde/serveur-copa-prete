@@ -42,14 +42,14 @@ async function seed() {
     if (rolesExist[0].count === '0') {
       await queryRunner.manager.query(`
         INSERT INTO roles (code, name, description, level, is_internal) VALUES
-        ('SUPER_ADMIN', 'Super Administrator', 'Full system access', 100, true),
-        ('ADMIN', 'Administrator', 'Platform administration', 90, true),
-        ('COPA_MANAGER', 'COPA Manager', 'Manage COPA editions and processes', 80, true),
-        ('EVALUATOR', 'Evaluator', 'Evaluate business plans', 70, false),
-        ('TRAINER', 'Trainer', 'Deliver training sessions', 60, false),
+        ('SUPER_ADMIN', 'Super Administrateur', 'Full system access', 100, true),
+        ('ADMIN', 'Administrateur', 'Platform administration', 90, true),
+        ('COPA_MANAGER', 'Gestionnaire COPA', 'Manage COPA editions and processes', 80, true),
+        ('EVALUATOR', 'Évaluateur', 'Evaluate business plans', 70, false),
+        ('TRAINER', 'Formateur', 'Deliver training sessions', 60, false),
         ('MENTOR', 'Mentor', 'Provide mentorship to beneficiaries', 60, false),
-        ('PARTNER', 'Partner', 'Partner organization representative', 50, false),
-        ('BENEFICIARY', 'Beneficiary', 'MPME beneficiary', 10, false);
+        ('PARTNER', 'Partenaire', 'Partner organization representative', 50, false),
+        ('BENEFICIARY', 'Bénéficiaire', 'MPME beneficiary', 10, false);
       `);
       console.log('Roles seeded');
     }

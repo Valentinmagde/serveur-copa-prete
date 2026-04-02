@@ -35,11 +35,12 @@ import { ResendVerificationDto, VerifyEmailDto } from './dto/verify-email.dto';
 import { RegistrationStep1Dto } from './dto/register-step1.dto';
 import { RegistrationMpmeDto } from './dto/register-mpme.dto';
 import { ValidateResetTokenDto } from './entities/validate-reset-token.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(private readonly authService: AuthService) { }
 
   @Public()
   @Post('register')
@@ -105,6 +106,45 @@ export class AuthController {
   async login(@Request() req) {
     // Les informations d'IP et user-agent sont déjà capturées dans la stratégie locale
     return this.authService.login(req.user, req.ip, req.headers['user-agent']);
+  }
+
+  /**
+   * Login administrateur - Endpoint séparé
+   * Utilise une stratégie différente qui vérifie les rôles
+   */
+  @Public()
+  @Post('admin/login')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Administrator login',
+    description: 'Authentification pour les administrateurs (SUPER_ADMIN, ADMIN, COPA_MANAGER)'
+  })
+  @ApiBody({ type: LoginDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Admin login successful',
+    schema: {
+      example: {
+        accessToken: 'eyJhbGciOiJIUzI1NiIs...',
+        refreshToken: 'eyJhbGciOiJIUzI1NiIs...',
+        user: {
+          id: 1,
+          email: 'admin@copa.bi',
+          firstName: 'Admin',
+          lastName: 'COPA',
+          roles: ['SUPER_ADMIN'],
+          permissions: ['view_all', 'edit_all', 'delete_all']
+        }
+      }
+    }
+  })
+  @ApiResponse({ status: 401, description: 'Invalid credentials or insufficient permissions' })
+  async adminLogin(
+    @Body() loginDto: LoginDto,
+    @Ip() ip: string,
+    @Headers('user-agent') userAgent: string,
+  ) {
+    return this.authService.adminLogin(loginDto.email, loginDto.password, ip, userAgent);
   }
 
   @Public()
@@ -247,5 +287,21 @@ export class AuthController {
       ipAddress,
       userAgent,
     );
+  }
+
+  @Post('change-password')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: `Changer le mot de passe de l'utilisateur connecté`,
+  })
+  @ApiResponse({ status: 200, description: 'Mot de passe modifié avec succès' })
+  @ApiResponse({ status: 401, description: 'Mot de passe actuel incorrect' })
+  async changePassword(
+    @CurrentUser() user,
+    @Body() changePasswordDto: ChangePasswordDto,
+  ) {
+    await this.authService.changePassword(user.id, changePasswordDto);
+    return { success: true, message: 'Mot de passe modifié avec succès' };
   }
 }

@@ -28,11 +28,17 @@ export interface TemplateData {
   activationLink?: string;
 
   // Password reset
+  password?: string;
   resetLink?: string;
   expiresIn?: string;
   supportEmail?: string;
   changeTime?: string;
   ipAddress?: string;
+  supportPhone?: string;
+
+  // Profil
+  role?: string;
+  loginUrl?: string;
 
   // Confirmation de profil
   dateEnregistrement?: string;
@@ -550,6 +556,157 @@ export class EmailTemplatesService {
     © ${new Date().getFullYear()} COPA - Concours de Plans d'Affaires du Burundi
     Pour toute assistance, contactez-nous au ${this.telephoneSupport} ou par email à support@copa.bi
   `;
+
+    return { subject, html, text };
+  }
+
+  getAccountCreatedEmail(data: TemplateData): {
+    subject: string;
+    html: string;
+    text: string;
+  } {
+    this.logger.log(`Préparation email création compte pour ${data.email}`);
+
+      // Construire le contenu de l'email
+      const subject = `Votre compte d'administration COPA a été créé`;
+      
+      const html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Votre compte COPA</title>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background-color: #1F4E79; color: white; padding: 30px 20px; text-align: center; border-radius: 8px 8px 0 0; }
+            .header h1 { margin: 0; font-size: 24px; }
+            .content { padding: 30px 20px; background-color: #f9f9f9; }
+            .welcome { font-size: 18px; margin-bottom: 20px; }
+            .info-card {
+              background-color: white;
+              border-radius: 8px;
+              padding: 20px;
+              margin: 20px 0;
+              box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }
+            .credential {
+              background-color: #f0f9ff;
+              border-left: 4px solid #1F4E79;
+              padding: 15px;
+              margin: 15px 0;
+              font-family: monospace;
+            }
+            .credential p { margin: 5px 0; }
+            .button {
+              display: inline-block;
+              padding: 12px 30px;
+              background-color: #1F4E79;
+              color: white !important;
+              text-decoration: none;
+              border-radius: 5px;
+              margin: 20px 0;
+              font-weight: bold;
+            }
+            .warning {
+              background-color: #fff3cd;
+              border: 1px solid #ffeeba;
+              color: #856404;
+              padding: 15px;
+              border-radius: 5px;
+              margin: 20px 0;
+            }
+            .footer {
+              margin-top: 30px;
+              padding: 20px;
+              font-size: 12px;
+              color: #666;
+              border-top: 1px solid #ddd;
+              text-align: center;
+            }
+            .role-badge {
+              display: inline-block;
+              padding: 5px 12px;
+              background-color: #e9ecef;
+              border-radius: 20px;
+              font-size: 14px;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>Bienvenue sur COPA</h1>
+              <p style="margin: 10px 0 0 0; opacity: 0.9;">Concours de Plans d'Affaires</p>
+            </div>
+            
+            <div class="content">
+              <div class="welcome">
+                Bonjour <strong>${data.firstName} ${data.lastName}</strong>,
+              </div>
+              
+              <p>Un compte a été créé pour vous sur la plateforme du <strong>Concours de Plans d'Affaires (COPA)</strong>.</p>
+              
+              <div class="info-card">
+                <h3 style="margin-top: 0; color: #1F4E79;">Vos informations de connexion</h3>
+                
+                <div class="credential">
+                  <p><strong>📧 Email :</strong> ${data.email}</p>
+                  <p><strong>🔑 Mot de passe :</strong> ${data.password}</p>
+                </div>
+                
+                <p><strong>👤 Rôle :</strong> <span class="role-badge">${data.role}</span></p>
+              </div>
+              
+              <div style="text-align: center;">
+                <a href="${data.loginUrl}" class="button">Se connecter</a>
+              </div>
+              
+              <div class="warning">
+                <strong>⚠️ Important :</strong> Pour des raisons de sécurité, nous vous recommandons de changer votre mot de passe lors de votre première connexion.
+              </div>
+              
+              <hr style="margin: 20px 0; border: none; border-top: 1px solid #ddd;">
+              
+              <p style="font-size: 14px; color: #666;">Pour toute assistance, contactez notre équipe support :<br>
+              <a href="mailto:${data.supportEmail}">${data.supportEmail}</a><br>
+              ${data.supportPhone}</p>
+            </div>
+            
+            <div class="footer">
+              <p>© ${new Date().getFullYear()} COPA - Concours de Plans d'Affaires du Burundi</p>
+              <p>Cet email a été envoyé automatiquement. Merci de ne pas y répondre.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `;
+
+      const text = `
+        VOTRE COMPTE COPA ADMIN A ÉTÉ CRÉÉ
+
+        Bonjour ${data.firstName} ${data.lastName},
+
+        Un compte d'administration a été créé pour vous sur la plateforme du Concours de Plans d'Affaires (COPA).
+
+        VOS INFORMATIONS DE CONNEXION :
+        Email : ${data.email}
+        Mot de passe : ${data.password}
+        Rôle : ${data.role}
+
+        Connectez-vous ici : ${data.loginUrl}
+
+        ⚠️ IMPORTANT : Pour des raisons de sécurité, changez votre mot de passe lors de votre première connexion.
+
+        Une fois connecté, vous pourrez modifier votre mot de passe, compléter votre profil et accéder à vos fonctionnalités.
+
+        Pour toute assistance :
+        Email : ${data.supportEmail}
+        Téléphone : ${data.supportPhone}
+
+        © ${new Date().getFullYear()} COPA - Concours de Plans d'Affaires du Burundi
+      `;
 
     return { subject, html, text };
   }

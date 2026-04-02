@@ -37,6 +37,7 @@ import { UserRole } from '../users/entities/user-role.entity';
 import { Gender } from '../reference/entities/gender.entity';
 import { RegistrationMpmeDto } from './dto/register-mpme.dto';
 import { randomBytes } from 'crypto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 
 @Injectable()
 export class AuthService {
@@ -53,7 +54,7 @@ export class AuthService {
     @InjectRepository(Company) private companyRepo: Repository<Company>,
     @InjectRedis() private readonly redis: Redis,
     private dataSource: DataSource,
-  ) {}
+  ) { }
 
   async validateUser(
     email: string,
@@ -194,6 +195,131 @@ export class AuthService {
         firstName: user.firstName,
         lastName: user.lastName,
         roles: user.roles,
+      },
+    };
+  }
+
+  /**
+  * Login administrateur - Vérifie les rôles administrateur
+  */
+  async adminLogin(email: string, password: string, ipAddress: string, userAgent: string) {
+    // 1. Valider les identifiants via la méthode existante
+    const user = await this.usersService.findByEmail(email);
+
+    if (!user) {
+      await this.authRepository.logLoginAttempt(
+        null,
+        email,
+        false,
+        ipAddress,
+        userAgent,
+        'User not found',
+      );
+      throw new UnauthorizedException('Email ou mot de passe incorrect');
+    }
+
+    if (user.isBlocked) {
+      await this.authRepository.logLoginAttempt(
+        user.id,
+        email,
+        false,
+        ipAddress,
+        userAgent,
+        'Account is blocked',
+      );
+      throw new UnauthorizedException('Ce compte est bloqué');
+    }
+
+    if (!user.isActive) {
+      await this.authRepository.logLoginAttempt(
+        user.id,
+        email,
+        false,
+        ipAddress,
+        userAgent,
+        'Account is inactive',
+      );
+      throw new UnauthorizedException('Ce compte est inactif');
+    }
+
+    // Vérifier le mot de passe
+    const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
+    if (!isPasswordValid) {
+      await this.usersService.recordFailedLogin(user.id);
+      await this.authRepository.logLoginAttempt(
+        user.id,
+        email,
+        false,
+        ipAddress,
+        userAgent,
+        'Invalid password',
+      );
+      throw new UnauthorizedException('Email ou mot de passe incorrect');
+    }
+
+    // 2. Récupérer les rôles de l'utilisateur
+    const userRoles = await this.getUserRoles(user.id);
+    const hasAdminRole = userRoles.some(role =>
+      ['SUPER_ADMIN', 'ADMIN', 'COPA_MANAGER'].includes(role.code)
+    );
+
+    if (!hasAdminRole) {
+      await this.authRepository.logLoginAttempt(
+        user.id,
+        email,
+        false,
+        ipAddress,
+        userAgent,
+        'No admin role',
+      );
+      throw new UnauthorizedException('Accès non autorisé. Vous n\'avez pas les droits administrateur.');
+    }
+
+    // 3. Réinitialiser les tentatives de connexion échouées
+    await this.usersService.resetFailedLoginAttempts(user.id);
+
+    // 4. Journaliser la tentative réussie
+    await this.authRepository.logLoginAttempt(
+      user.id,
+      email,
+      true,
+      ipAddress,
+      userAgent,
+    );
+
+    // 5. Générer les tokens
+    const payload = {
+      sub: user.id,
+      email: user.email,
+      roles: userRoles.map(r => r.code),
+    };
+
+    const accessToken = this.jwtService.sign(payload);
+    const refreshToken = await this.createRefreshToken(user.id);
+
+    // 6. Mettre à jour la dernière connexion
+    await this.usersService.updateLastLogin(user.id);
+
+    // 7. Log d'audit admin
+    // await this.authRepository.logAdminAction({
+    //   userId: user.id,
+    //   action: 'ADMIN_LOGIN',
+    //   ipAddress,
+    //   userAgent,
+    //   details: { email: user.email, roles: userRoles.map(r => r.code) }
+    // });
+
+    return {
+      accessToken,
+      refreshToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        roles: userRoles.map((r) => r.code),
+        permissions: this.getPermissionsFromRoles(userRoles),
+        image: user.profilePhotoUrl,
       },
     };
   }
@@ -694,6 +820,7 @@ export class AuthService {
       return false;
     }
   }
+
   /**
    * Renvoie un email de vérification
    */
@@ -748,9 +875,9 @@ export class AuthService {
     const expiresAt = new Date();
     expiresAt.setDate(
       expiresAt.getDate() +
-        parseInt(
-          this.configService.get('app.jwt.refreshExpiresIn').replace('d', ''),
-        ),
+      parseInt(
+        this.configService.get('app.jwt.refreshExpiresIn').replace('d', ''),
+      ),
     );
 
     const token = new RefreshToken();
@@ -1304,6 +1431,39 @@ export class AuthService {
     };
   }
 
+  async changePassword(userId: number, dto: ChangePasswordDto): Promise<void> {
+    const user = await this.usersService.findById(userId);
+
+    // Vérifier le mot de passe actuel
+    const isPasswordValid = await bcrypt.compare(
+      dto.currentPassword,
+      user.passwordHash,
+    );
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('Mot de passe actuel incorrect');
+    }
+
+    // Vérifier que le nouveau mot de passe est différent
+    if (dto.currentPassword === dto.newPassword) {
+      throw new BadRequestException(
+        `Le nouveau mot de passe doit être différent de l'ancien`,
+      );
+    }
+
+    // Hasher le nouveau mot de passe
+    const saltRounds = this.configService.get('app.bcryptSaltRounds');
+    const passwordHash = await bcrypt.hash(dto.newPassword, saltRounds);
+
+    // Mettre à jour le mot de passe
+    await this.usersService.updatePassword(userId, passwordHash);
+
+    // Révoquer tous les tokens de rafraîchissement
+    await this.authRepository.revokeAllUserRefreshTokens(userId);
+
+    // Journaliser le changement
+    this.logger.log(`Password changed for user ${userId}`);
+  }
+
   private async getStatusId(
     code: string,
     entityType: string,
@@ -1488,5 +1648,51 @@ export class AuthService {
 
   private capitalizeFirstLetter(str: string): string {
     return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+  }
+
+  /**
+   * Récupère les rôles d'un utilisateur
+   */
+  async getUserRoles(userId: number): Promise<Role[]> {
+    const userRoles = await this.dataSource
+      .getRepository(UserRole)
+      .find({
+        where: { userId, isActive: true },
+        relations: ['role'],
+      });
+
+    return userRoles.map(ur => ur.role).filter(r => r && r.isActive);
+  }
+
+  /**
+   * Génère les permissions basées sur les rôles
+   */
+  private getPermissionsFromRoles(roles: Role[]): string[] {
+    const rolePermissions: Record<string, string[]> = {
+      SUPER_ADMIN: [
+        'view_all', 'edit_all', 'delete_all',
+        'manage_users', 'manage_roles', 'view_audit_logs',
+        'manage_beneficiaries', 'manage_business_plans', 'manage_evaluations',
+        'manage_subventions', 'view_reports'
+      ],
+      ADMIN: [
+        'view_all', 'edit_all',
+        'manage_beneficiaries', 'manage_business_plans', 'manage_evaluations',
+        'manage_subventions', 'view_reports'
+      ],
+      COPA_MANAGER: [
+        'view_all', 'manage_beneficiaries', 'manage_business_plans',
+        'view_reports'
+      ],
+    };
+
+    const permissions = new Set<string>();
+    for (const role of roles) {
+      if (rolePermissions[role.code]) {
+        rolePermissions[role.code].forEach(p => permissions.add(p));
+      }
+    }
+
+    return Array.from(permissions);
   }
 }

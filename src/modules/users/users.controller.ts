@@ -10,6 +10,10 @@ import {
   UseGuards,
   HttpStatus,
   HttpCode,
+  ValidationPipe,
+  BadRequestException,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
 
 import { UsersService } from './users.service';
@@ -23,7 +27,15 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { AssignRoleDto } from './dto/assign-role.dto';
 import { UserConsentDto } from './dto/user-consent.dto';
-import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiConsumes,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
 
 @ApiTags('users')
 @Controller('users')
@@ -38,6 +50,15 @@ export class UsersController {
   @ApiResponse({ status: 200, type: [UserResponseDto] })
   async findAll(@Query() filterDto: UserFilterDto) {
     return this.usersService.findAll(filterDto);
+  }
+
+  @Get('admin-staff')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'COPA_MANAGER')
+  @ApiOperation({
+    summary: 'Liste des utilisateurs staff (rôles admin/internes)',
+  })
+  async findAdminStaff(@Query() filterDto: UserFilterDto) {
+    return this.usersService.findAllWithFilters(filterDto);
   }
 
   @Get('profile')
@@ -61,14 +82,39 @@ export class UsersController {
     return this.usersService.findById(+id, ['gender', 'primaryAddress']);
   }
 
+  /**
+   * Créer un nouvel utilisateur (admin seulement)
+   */
   @Post()
   @Roles('SUPER_ADMIN', 'ADMIN')
-  @ApiOperation({ summary: 'Create a new user' })
+  @ApiOperation({ summary: 'Créer un nouvel utilisateur' })
   @ApiResponse({ status: 201, type: UserResponseDto })
-  async create(@Body() createUserDto: CreateUserDto) {
-    return this.usersService.create(createUserDto);
+  @ApiResponse({ status: 400, description: 'Données invalides' })
+  @ApiResponse({ status: 409, description: 'Email déjà utilisé' })
+  @ApiResponse({ status: 404, description: 'Rôle non trouvé' })
+  async createUser(
+    @Body(new ValidationPipe()) createUserDto: CreateUserDto,
+    @CurrentUser() currentUser: any,
+  ): Promise<UserResponseDto> {
+    return this.usersService.createUserWithRole(createUserDto, currentUser.id);
   }
 
+  /**
+   * Créer plusieurs utilisateurs (admin seulement)
+   */
+  @Post('bulk')
+  @Roles('SUPER_ADMIN', 'ADMIN')
+  @ApiOperation({ summary: 'Créer plusieurs utilisateurs' })
+  @ApiResponse({ status: 201, type: [UserResponseDto] })
+  async createMultipleUsers(
+    @Body(new ValidationPipe()) createUsersDto: CreateUserDto[],
+    @CurrentUser() currentUser: any,
+  ): Promise<UserResponseDto[]> {
+    return this.usersService.createMultipleUsers(
+      createUsersDto,
+      currentUser.id,
+    );
+  }
   @Put(':id')
   @Roles('SUPER_ADMIN', 'ADMIN')
   @ApiOperation({ summary: 'Update user' })
@@ -164,5 +210,89 @@ export class UsersController {
   @ApiResponse({ status: 200 })
   async verifyUser(@Param('id') id: string) {
     return this.usersService.verifyUser(+id);
+  }
+
+  /**
+   * Uploader un avatar pour l'utilisateur connecté
+   */
+  @Post('me/avatar')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: { type: 'string', format: 'binary' },
+      },
+    },
+  })
+  @ApiOperation({ summary: `Uploader un avatar pour l'utilisateur connecté` })
+  @ApiResponse({ status: 200, description: 'Avatar uploadé avec succès' })
+  async uploadMyAvatar(
+    @UploadedFile() file: Express.Multer.File,
+    @CurrentUser() user,
+  ) {
+    if (!file) {
+      throw new BadRequestException('Aucun fichier fourni');
+    }
+
+    return this.usersService.uploadAvatar(user.id, file);
+  }
+
+  /**
+   * Supprimer l'avatar de l'utilisateur connecté
+   */
+  @Delete('me/avatar')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: `Supprimer l'avatar de l'utilisateur connecté` })
+  async deleteMyAvatar(@CurrentUser() user) {
+    await this.usersService.deleteAvatar(user.id);
+    return { message: 'Avatar supprimé avec succès' };
+  }
+
+  /**
+   * Mettre à jour son propre profil
+   */
+  @Put('me')
+  @UseInterceptors(FileInterceptor('avatar'))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Mettre à jour son propre profil' })
+  async updateMyProfile(
+    @CurrentUser() user,
+    @Body() updateDto: UpdateUserDto,
+    @UploadedFile() avatarFile?: Express.Multer.File,
+  ) {
+    return this.usersService.updateProfile(user.id, updateDto, avatarFile);
+  }
+
+  /**
+   * Uploader un avatar pour un utilisateur spécifique (admin seulement)
+   */
+  @Post(':id/avatar')
+  @Roles('SUPER_ADMIN', 'ADMIN')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Uploader un avatar pour un utilisateur (admin)' })
+  async uploadUserAvatar(
+    @Param('id') id: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!file) {
+      throw new BadRequestException('Aucun fichier fourni');
+    }
+
+    return this.usersService.uploadAvatar(+id, file);
+  }
+
+  /**
+   * Supprimer l'avatar d'un utilisateur (admin seulement)
+   */
+  @Delete(':id/avatar')
+  @Roles('SUPER_ADMIN', 'ADMIN')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: `Supprimer l'avatar d'un utilisateur (admin)` })
+  async deleteUserAvatar(@Param('id') id: string) {
+    await this.usersService.deleteAvatar(+id);
+    return { message: 'Avatar supprimé avec succès' };
   }
 }

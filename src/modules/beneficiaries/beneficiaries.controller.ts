@@ -9,7 +9,7 @@ import {
   UseGuards,
   Headers,
 } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth, ApiHeader } from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth, ApiHeader, ApiOperation } from '@nestjs/swagger';
 import { BeneficiariesService } from './beneficiaries.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -24,7 +24,7 @@ import { CurrentUser } from '@/common/decorators/current-user.decorator';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth()
 export class BeneficiariesController {
-  constructor(private readonly beneficiariesService: BeneficiariesService) {}
+  constructor(private readonly beneficiariesService: BeneficiariesService) { }
 
   @Get()
   @Roles('SUPER_ADMIN', 'ADMIN', 'COPA_MANAGER')
@@ -36,6 +36,12 @@ export class BeneficiariesController {
   @Roles('SUPER_ADMIN', 'ADMIN', 'COPA_MANAGER')
   async findOne(@Param('id') id: string) {
     return this.beneficiariesService.findById(+id);
+  }
+
+  @Get(':id/candidature')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'COPA_MANAGER')
+  async getCompleteBeneficiaryData(@Param('id') id: string) {
+    return this.beneficiariesService.getCompleteBeneficiaryData(+id);
   }
 
   @Get('user/:userId')
@@ -86,5 +92,38 @@ export class BeneficiariesController {
     @CurrentUser() user,
   ) {
     return this.beneficiariesService.validate(+id, { comment }, user.id);
+  }
+
+  @Post(':id/preselect')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'COPA_MANAGER')
+  @ApiOperation({ summary: 'Présélectionner un bénéficiaire' })
+  async preselect(
+    @Param('id') id: string,
+    @Body('comment') comment: string,
+    @CurrentUser() user,
+  ) {
+    return this.beneficiariesService.preselect(+id, comment, user.id);
+  }
+
+  @Post(':id/select')
+  @Roles('SUPER_ADMIN', 'ADMIN')
+  @ApiOperation({ summary: 'Sélectionner définitivement un bénéficiaire' })
+  async select(
+    @Param('id') id: string,
+    @Body('comment') comment: string,
+    @CurrentUser() user,
+  ) {
+    return this.beneficiariesService.select(+id, comment, user.id);
+  }
+
+  @Post(':id/reject')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'COPA_MANAGER')
+  @ApiOperation({ summary: 'Rejeter un bénéficiaire' })
+  async reject(
+    @Param('id') id: string,
+    @Body('reason') reason: string,
+    @CurrentUser() user,
+  ) {
+    return this.beneficiariesService.reject(+id, reason, user.id);
   }
 }

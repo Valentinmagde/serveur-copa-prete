@@ -54,7 +54,7 @@ export class BeneficiariesService {
     private readonly notificationsService: NotificationsService,
     @InjectRepository(Document)
     private readonly documentRepository: Repository<Document>,
-  ) {}
+  ) { }
 
   async create(
     createBeneficiaryDto: CreateBeneficiaryDto,
@@ -93,8 +93,22 @@ export class BeneficiariesService {
       page = 1,
       limit = 10,
       search,
+      isProfileComplete,
+      // status,
       statusId,
       companyId,
+      provinceId,
+      category,
+      companyType,
+      gender,
+      legalStatus,
+      sector,
+      isWomanLed,
+      isRefugeeLed,
+      hasClimateImpact,
+      minAmount,
+      maxAmount,
+      minCompletion,
       fromDate,
       toDate,
     } = filterDto;
@@ -105,35 +119,139 @@ export class BeneficiariesService {
       .createQueryBuilder('beneficiary')
       .leftJoinAndSelect('beneficiary.user', 'user')
       .leftJoinAndSelect('beneficiary.company', 'company')
-      .leftJoinAndSelect('beneficiary.status', 'status');
+      .leftJoinAndSelect('company.primarySector', 'primarySector')
+      .leftJoinAndSelect('company.secondarySector', 'secondarySector')
+      .leftJoinAndSelect('company.legalForm', 'legalForm')
+      .leftJoinAndSelect('beneficiary.status', 'status')
+      .leftJoinAndSelect('user.primaryAddress', 'primaryAddress')
+      .leftJoinAndSelect('primaryAddress.commune', 'commune')
+      .leftJoinAndSelect('commune.province', 'province')
+      .leftJoinAndSelect('user.gender', 'gender');
 
+    // ── Recherche texte ──────────────────────────────────────────────────────
     if (search) {
       queryBuilder.andWhere(
-        '(user.firstName ILIKE :search OR user.lastName ILIKE :search OR user.email ILIKE :search)',
+        `(user.firstName    ILIKE :search
+     OR user.lastName     ILIKE :search
+     OR user.email        ILIKE :search
+     OR user.phoneNumber  ILIKE :search
+     OR company.companyName ILIKE :search)`,
         { search: `%${search}%` },
       );
     }
 
+    // ── Statut ────────────────────────────────────────────────────────────────
     if (statusId) {
       queryBuilder.andWhere('beneficiary.statusId = :statusId', { statusId });
     }
 
+    if (isProfileComplete) {
+      queryBuilder.andWhere(
+        'beneficiary.isProfileComplete = :isProfileComplete',
+        { isProfileComplete },
+      );
+    }
+
+    // ── Entreprise ────────────────────────────────────────────────────────────
     if (companyId) {
       queryBuilder.andWhere('beneficiary.companyId = :companyId', {
         companyId,
       });
     }
 
-    if (fromDate) {
-      queryBuilder.andWhere('beneficiary.createdAt >= :fromDate', { fromDate });
+    // ── Province ──────────────────────────────────────────────────────────────
+    if (provinceId) {
+      queryBuilder.andWhere('province.id = :provinceId', { provinceId });
     }
 
+    // ── Catégorie (BURUNDIAN / REFUGEE) ───────────────────────────────────────
+    if (category) {
+      queryBuilder.andWhere('beneficiary.category = :category', { category });
+    }
+
+    // ── Type d'entreprise (formal / informal / project) ───────────────────────
+    if (companyType) {
+      queryBuilder.andWhere('beneficiary.companyType = :companyType', {
+        companyType,
+      });
+    }
+
+    // ── Genre ─────────────────────────────────────────────────────────────────
+    if (gender) {
+      queryBuilder.andWhere('gender.code = :gender', { gender });
+    }
+
+    // ── Complétion minimale ───────────────────────────────────────────────────
+    if (minCompletion !== undefined) {
+      queryBuilder.andWhere(
+        'CAST(beneficiary.profileCompletionPercentage AS DECIMAL) >= :minCompletion',
+        { minCompletion },
+      );
+    }
+
+    if (legalStatus) {
+      queryBuilder.andWhere('company.legalStatus = :legalStatus', {
+        legalStatus,
+      });
+    }
+
+    if (sector) {
+      queryBuilder.andWhere(
+        '(primarySector.code = :sector OR beneficiary.otherSector ILIKE :sectorSearch)',
+        { sector, sectorSearch: `%${sector}%` },
+      );
+    }
+
+    if (isWomanLed !== undefined) {
+      queryBuilder.andWhere('company.isLedByWoman = :isWomanLed', {
+        isWomanLed,
+      });
+    }
+
+    if (isRefugeeLed !== undefined) {
+      queryBuilder.andWhere('company.isLedByRefugee = :isRefugeeLed', {
+        isRefugeeLed,
+      });
+    }
+
+    if (hasClimateImpact !== undefined) {
+      queryBuilder.andWhere(
+        'company.hasPositiveClimateImpact = :hasClimateImpact',
+        { hasClimateImpact });
+    }
+
+    if (minAmount !== undefined) {
+      queryBuilder.andWhere(
+        'CAST(beneficiary.requestedSubsidyAmount AS DECIMAL) >= :minAmount', {
+          minAmount,
+        },
+      );
+    }
+
+    if (maxAmount !== undefined) {
+      queryBuilder.andWhere(
+        'CAST(beneficiary.requestedSubsidyAmount AS DECIMAL) <= :maxAmount',
+        { maxAmount },
+      );
+    }
+
+    // ── Plage de dates ────────────────────────────────────────────────────────
+    if (fromDate) {
+      queryBuilder.andWhere('beneficiary.createdAt >= :fromDate', {
+        fromDate: new Date(fromDate),
+      });
+    }
     if (toDate) {
-      queryBuilder.andWhere('beneficiary.createdAt <= :toDate', { toDate });
+      // ✅ Inclure toute la journée de fin
+      const end = new Date(toDate);
+      end.setHours(23, 59, 59, 999);
+      queryBuilder.andWhere('beneficiary.createdAt <= :toDate', {
+        toDate: end,
+      });
     }
 
     const [beneficiaries, total] = await queryBuilder
-      .orderBy('beneficiary.createdAt', 'DESC')
+      .orderBy('beneficiary.createdAt', 'ASC')
       .skip(skip)
       .take(take)
       .getManyAndCount();
@@ -141,23 +259,396 @@ export class BeneficiariesService {
     return PaginationUtil.paginate(beneficiaries, total, { page, limit });
   }
 
-  async findById(id: number, relations: string[] = []): Promise<Beneficiary> {
-    const beneficiary = await this.beneficiaryRepository.findOne({
-      where: { id },
-      relations: [
-        'user',
-        'company',
-        'status',
-        'subscriptionStatus',
-        ...relations,
-      ],
-    });
+  async findById(id: number, relations: string[] = []): Promise<any> {
+    const beneficiary = await this.beneficiaryRepository
+      .createQueryBuilder('beneficiary')
+      .leftJoinAndSelect('beneficiary.user', 'user')
+      .leftJoinAndSelect('user.gender', 'gender')
+      .leftJoinAndSelect('user.primaryAddress', 'primaryAddress')
+      .leftJoinAndSelect('primaryAddress.commune', 'commune')
+      .leftJoinAndSelect('commune.province', 'province')
+      .leftJoinAndSelect('beneficiary.company', 'company')
+      .leftJoinAndSelect('beneficiary.status', 'status')
+      .leftJoinAndSelect('beneficiary.subscriptionStatus', 'subscriptionStatus')
+      .leftJoinAndSelect('user.consents', 'consents')
+      .leftJoinAndSelect('consents.consentType', 'consentType')
+      .where('beneficiary.id = :id', { id })
+      .getOne();
+    // const beneficiary = await this.beneficiaryRepository.findOne({
+    //   where: { id },
+    //   relations: [
+    //     'user',
+    //     'user.gender',
+    //     'user.primaryAddress',
+    //     'user.consents',
+    //     'user.consents.consentType',
+    //     'user.primaryAddress.commune',
+    //     'user.primaryAddress.commune.province',
+    //     'document',
+    //     'document.documentType',
+    //     'document.uploadedBy',
+    //     'company',
+    //     'status',
+    //     'subscriptionStatus',
+    //     ...relations,
+    //   ],
+    // });
 
     if (!beneficiary) {
       throw new NotFoundException(`Beneficiary with ID ${id} not found`);
     }
 
-    return beneficiary;
+    const documents = await this.documentRepository.find({
+      where: {
+        entityId: id,
+        entityType: 'beneficiary',
+      },
+      relations: ['documentType', 'uploadedBy'],
+      order: { createdAt: 'DESC' },
+    });
+
+    return {
+      ...beneficiary,
+      documents,
+    };
+  }
+
+  async getCompleteBeneficiaryData(id: number): Promise<any> {
+    try {
+      const beneficiary = await this.beneficiaryRepository
+        .createQueryBuilder('beneficiary')
+        .leftJoinAndSelect('beneficiary.user', 'user')
+        .leftJoinAndSelect('beneficiary.company', 'company')
+        .leftJoinAndSelect('beneficiary.status', 'status')
+        .leftJoinAndSelect('beneficiary.copaEdition', 'copaEdition')
+        .leftJoinAndSelect('user.gender', 'gender')
+        .leftJoinAndSelect('user.primaryAddress', 'primaryAddress')
+        .leftJoinAndSelect('primaryAddress.commune', 'commune')
+        .leftJoinAndSelect('commune.province', 'province')
+        .leftJoinAndSelect('user.consents', 'consents')
+        .leftJoinAndSelect('consents.consentType', 'consentType')
+        .leftJoinAndSelect('company.address', 'companyAddress')
+        .leftJoinAndSelect('companyAddress.commune', 'companyCommune')
+        .leftJoinAndSelect('companyCommune.province', 'companyProvince')
+        .leftJoinAndSelect('company.primarySector', 'primarySector')
+        .leftJoinAndSelect('company.status', 'companyStatus')
+        .leftJoinAndSelect('beneficiary.validatedBy', 'validatedBy')
+        .leftJoinAndSelect('beneficiary.preSelectedBy', 'preSelectedBy')
+        .leftJoinAndSelect('beneficiary.rejectedBy', 'rejectedBy')
+        .where('beneficiary.id = :id', { id })
+        .getOne();
+
+      if (!beneficiary) {
+        throw new NotFoundException(`Beneficiary for ID ${id} not found`);
+      }
+
+      const allDocuments = await this.documentRepository
+        .createQueryBuilder('documents')
+        .leftJoinAndSelect('documents.documentType', 'documentType')
+        .leftJoinAndSelect('documents.uploadedBy', 'uploadedBy')
+        .where('documents.entity_id = :entityId', { entityId: id })
+        .andWhere('documents.entity_type = :entityType', { entityType: 'beneficiary' })
+        .orderBy('documents.createdAt', 'DESC')
+        .getMany();
+
+      // Grouper par clé et ne garder que le dernier
+      const documentsByKey = new Map<string, any>();
+
+      for (const doc of allDocuments) {
+        if (!doc.documentKey) continue;
+
+        const existing = documentsByKey.get(doc.documentKey);
+        if (!existing || doc.createdAt > existing.createdAt) {
+          documentsByKey.set(doc.documentKey, doc);
+        }
+      }
+
+      const documents = Array.from(documentsByKey.values());
+
+      // Transformer les données au format attendu par le formulaire
+      return this.transformBeneficiaryToFormData({
+        ...beneficiary,
+        documents,
+        documentsByKey,
+      });
+    } catch (error) {
+      this.logger.error(`Error fetching beneficiary data for id ${id}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Transforme les données du bénéficiaire au format du formulaire
+   */
+  private transformBeneficiaryToFormData(beneficiary: any): any {
+    // Récupérer les consentements
+    const consentsMap = new Map();
+    if (beneficiary.user?.consents) {
+      beneficiary.user.consents.forEach((consent: any) => {
+        consentsMap.set(consent.consentType?.code, consent.value);
+      });
+    }
+
+    // Formater les données du bénéficiaire
+    return {
+      id: beneficiary.id,
+      uuid: beneficiary.uuid,
+
+      // Informations personnelles (Step 1)
+      user: {
+        id: beneficiary.user?.id,
+        email: beneficiary.user?.email,
+        firstName: beneficiary.user?.firstName,
+        lastName: beneficiary.user?.lastName,
+        phoneNumber: beneficiary.user?.phoneNumber,
+        birthDate: beneficiary.user?.birthDate,
+        gender: {
+          code: beneficiary.user?.gender?.code,
+          name: beneficiary.user?.gender?.label,
+        },
+        primaryAddress: {
+          id: beneficiary.user?.primaryAddress?.id,
+          provinceId: beneficiary.user?.primaryAddress?.provinceId,
+          province: beneficiary.user?.primaryAddress?.commune?.province?.name,
+          communeId: beneficiary.user?.primaryAddress?.communeId,
+          commune: beneficiary.user?.primaryAddress?.commune?.name,
+          neighborhood: beneficiary.user?.primaryAddress?.neighborhood,
+          street: beneficiary.user?.primaryAddress?.street,
+          hill: beneficiary.user?.primaryAddress?.hill,
+        },
+        consents: beneficiary.user?.consents?.map((c: any) => ({
+          type: c.consentType?.code,
+          value: c.value,
+          givenAt: c.givenAt,
+        })),
+      },
+
+      // Informations du bénéficiaire
+      position: beneficiary.position,
+      maritalStatus: beneficiary.maritalStatus,
+      educationLevel: beneficiary.educationLevel,
+      category: beneficiary.category,
+
+      // Questions d'éligibilité
+      eligibilityQuestions: {
+        isPublicServant: beneficiary.isPublicServant,
+        isRelativeOfPublicServant: beneficiary.isRelativeOfPublicServant,
+        isPublicIntern: beneficiary.isPublicIntern,
+        isRelativeOfPublicIntern: beneficiary.isRelativeOfPublicIntern,
+        wasHighOfficer: beneficiary.wasHighOfficer,
+        isRelativeOfHighOfficer: beneficiary.isRelativeOfHighOfficer,
+        hasProjectLink: beneficiary.hasProjectLink,
+        isDirectSupplierToProject: beneficiary.isDirectSupplierToProject,
+        hasPreviousGrant: beneficiary.hasPreviousGrant,
+        previousGrantDetails: beneficiary.previousGrantDetails,
+      },
+
+      // Informations entreprise (Step 2)
+      company: beneficiary.company
+        ? {
+          id: beneficiary.company.id,
+          companyName: beneficiary.company.companyName,
+          companyType: beneficiary.company.companyType,
+          taxIdNumber: beneficiary.company.taxIdNumber,
+          registrationNumber: beneficiary.company.registrationNumber,
+          legalStatus: beneficiary.company.legalStatus,
+          legalStatusOther: beneficiary.company.legalStatusOther,
+          creationDate: beneficiary.company.creationDate,
+          activityDescription: beneficiary.company.activityDescription,
+          permanentEmployees: beneficiary.company.permanentEmployees,
+          totalEmployees: beneficiary.company.totalEmployees,
+          revenueYearN1: beneficiary.company.revenueYearN1,
+
+          // Secteur d'activité
+          primarySector: {
+            id: beneficiary.company.primarySector?.id,
+            name:
+              beneficiary.company.primarySector?.nameFr ||
+              beneficiary.company.primarySector?.nameRn,
+          },
+          otherCompanySector: beneficiary.company.otherCompanySector,
+
+          // Adresse entreprise
+          address: beneficiary.company.address
+            ? {
+              provinceId: beneficiary.company.address.provinceId,
+              province: beneficiary.company.address.province?.name,
+              communeId: beneficiary.company.address.communeId,
+              commune: beneficiary.company.address.commune?.name,
+              neighborhood: beneficiary.company.address.neighborhood,
+              street: beneficiary.company.address.street,
+            }
+            : null,
+          companyAddressIsDifferent:
+            beneficiary.company.companyAddressIsDifferent,
+
+          // Téléphone et email entreprise
+          companyPhone: beneficiary.company.companyPhone,
+          companyEmail: beneficiary.company.companyEmail,
+
+          // Support service
+          supportService: beneficiary.company.supportService,
+
+          // Employés
+          employees: {
+            female: beneficiary.company.femaleEmployees,
+            male: beneficiary.company.maleEmployees,
+            refugee: beneficiary.company.refugeeEmployees,
+            batwa: beneficiary.company.batwaEmployees,
+            disabled: beneficiary.company.disabledEmployees,
+            albinos: beneficiary.company.albinosEmployees,
+            repatriates: beneficiary.company.repatriatesEmployees,
+            partTime: beneficiary.company.partTimeEmployees,
+            permanent: beneficiary.company.permanentEmployees,
+          },
+
+          // Associés
+          associates: {
+            count: beneficiary.company.associatesCount,
+            countOther: beneficiary.company.associatesCountOther,
+            partners: {
+              female: beneficiary.company.femalePartners,
+              male: beneficiary.company.malePartners,
+              refugee: beneficiary.company.refugeePartners,
+              batwa: beneficiary.company.batwaPartners,
+              disabled: beneficiary.company.disabledPartners,
+              albinos: beneficiary.company.albinosPartners,
+              repatriates: beneficiary.company.repatriatesPartners,
+            },
+          },
+
+          // Finances
+          finances: {
+            hasBankAccount: beneficiary.company.hasBankAccount,
+            hasBankCredit: beneficiary.company.hasBankCredit,
+            bankCreditAmount: beneficiary.company.bankCreditAmount,
+            annualRevenue: beneficiary.company.revenueYearN1,
+          },
+
+          // Impact social
+          socialImpact: {
+            isLedByWoman: beneficiary.company.isLedByWoman,
+            isLedByRefugee: beneficiary.company.isLedByRefugee,
+            hasPositiveClimateImpact:
+              beneficiary.company.hasPositiveClimateImpact,
+          },
+        }
+        : null,
+
+      // Informations projet (Step 3)
+      project: {
+        title: beneficiary.projectTitle,
+        objective: beneficiary.projectObjective,
+        sectors: beneficiary.projectSectors,
+        otherSector: beneficiary.otherSector,
+        mainActivities: beneficiary.mainActivities,
+        productsServices: beneficiary.productsServices,
+        businessIdea: beneficiary.businessIdea,
+        targetClients: beneficiary.targetClients,
+        clientScope: beneficiary.clientScope,
+
+        // Concurrence
+        competition: {
+          hasCompetitors: beneficiary.hasCompetitors,
+          competitorNames: beneficiary.competitorNames,
+        },
+
+        // Employés prévus
+        plannedEmployees: {
+          female: beneficiary.plannedEmployeesFemale,
+          male: beneficiary.plannedEmployeesMale,
+          permanent: beneficiary.plannedPermanentEmployees,
+          refugee: beneficiary.plannedRefugeeEmployees,
+          batwa: beneficiary.plannedBatwaEmployees,
+          disabled: beneficiary.plannedDisabledEmployees,
+          albinos: beneficiary.plannedAlbinosEmployees,
+          repatriates: beneficiary.plannedRepatriatesEmployees,
+          partTime: beneficiary.plannedPartTimeEmployees,
+        },
+
+        // Innovation
+        innovation: {
+          isNewIdea: beneficiary.isNewIdea,
+          ideaTested: beneficiary.ideaTested,
+        },
+
+        // Impact
+        impact: {
+          climateActions: beneficiary.climateActions,
+          inclusionActions: beneficiary.inclusionActions,
+        },
+
+        // Financement
+        financing: {
+          hasEstimatedCost: beneficiary.hasEstimatedCost,
+          totalCost: beneficiary.totalProjectCost,
+          requestedSubsidy: beneficiary.requestedSubsidyAmount,
+          mainExpenses: beneficiary.mainExpenses,
+        },
+      },
+
+      // Documents
+      documents:
+        beneficiary.documents?.map((doc: any) => ({
+          id: doc.id,
+          key: doc.documentKey,
+          type: doc.documentType?.name,
+          originalFilename: doc.originalFilename,
+          filePath: doc.filePath,
+          fileSize: doc.fileSizeBytes,
+          mimeType: doc.mimeType,
+          validationStatus: doc.validationStatus,
+          uploadedAt: doc.uploadedAt,
+          uploadedBy:
+            doc.uploadedBy?.firstName + ' ' + doc.uploadedBy?.lastName,
+        })) || [],
+
+      // Documents groupés par clé
+      documentsByKey: this.groupDocumentsByKey(beneficiary.documents || []),
+
+      // Statut et progression
+      status: {
+        code: beneficiary.status?.code,
+        name: beneficiary.status?.name,
+      },
+      profileCompletionPercentage: beneficiary.profileCompletionPercentage,
+      profileCompletionStep: beneficiary.profileCompletionStep,
+      isProfileComplete: beneficiary.isProfileComplete,
+      applicationCode: beneficiary.applicationCode,
+      applicationSubmittedAt: beneficiary.applicationSubmittedAt,
+
+      // Dates
+      createdAt: beneficiary.createdAt,
+      updatedAt: beneficiary.updatedAt,
+
+      // Édition COPA
+      copaEdition: beneficiary.copaEdition
+        ? {
+          id: beneficiary.copaEdition.id,
+          code: beneficiary.copaEdition.code,
+          name: beneficiary.copaEdition.name,
+          year: beneficiary.copaEdition.year,
+        }
+        : null,
+    };
+  }
+
+  /**
+   * Groupe les documents par clé (garder le plus récent pour chaque type)
+   */
+  private groupDocumentsByKey(documents: any[]): Record<string, any> {
+    const grouped: Record<string, any> = {};
+
+    for (const doc of documents) {
+      if (doc.documentKey) {
+        if (!grouped[doc.documentKey] ||
+          new Date(doc.createdAt) > new Date(grouped[doc.documentKey].createdAt)) {
+          grouped[doc.documentKey] = doc;
+        }
+      }
+    }
+
+    return grouped;
   }
 
   async findByUserId(userId: number): Promise<any> {
@@ -1382,6 +1873,55 @@ export class BeneficiariesService {
 
     const updated = await this.beneficiaryRepository.save(beneficiary);
     return this.findById(updated.id);
+  }
+
+  async preselect(id: number, comment: string, validatorId: number) {
+    const beneficiary = await this.findById(id);
+
+    const status = await this.statusRepository.findOne({
+      where: { code: 'PRESELECTED', entityType: 'BENEFICIARY' },
+    });
+    if (!status) throw new NotFoundException('Statut PRESELECTED introuvable');
+
+    beneficiary.statusId = status.id;
+    beneficiary.preSelectedAt = new Date();
+    beneficiary.preSelectedByUserId = validatorId;
+
+    await this.beneficiaryRepository.save(beneficiary);
+    return { success: true, message: 'Candidat présélectionné avec succès' };
+  }
+
+  async select(id: number, comment: string, validatorId: number) {
+    const beneficiary = await this.findById(id);
+
+    const status = await this.statusRepository.findOne({
+      where: { code: 'VALIDATED', entityType: 'BENEFICIARY' },
+    });
+    if (!status) throw new NotFoundException('Statut VALIDATED introuvable');
+
+    beneficiary.statusId = status.id;
+    beneficiary.validatedAt = new Date();
+    beneficiary.validatedByUserId = validatorId;
+
+    await this.beneficiaryRepository.save(beneficiary);
+    return { success: true, message: 'Candidat sélectionné avec succès' };
+  }
+
+  async reject(id: number, reason: string, validatorId: number) {
+    const beneficiary = await this.findById(id);
+
+    const status = await this.statusRepository.findOne({
+      where: { code: 'REJECTED', entityType: 'BENEFICIARY' },
+    });
+    if (!status) throw new NotFoundException('Statut REJECTED introuvable');
+
+    beneficiary.statusId = status.id;
+    beneficiary.rejectedAt = new Date();
+    beneficiary.rejectedByUserId = validatorId;
+    beneficiary.rejectionReason = reason;
+
+    await this.beneficiaryRepository.save(beneficiary);
+    return { success: true, message: 'Candidat rejeté' };
   }
 
   /**

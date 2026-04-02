@@ -3,6 +3,8 @@ import {
   Logger,
   NotFoundException,
   BadRequestException,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, FindOptionsWhere, Between, In, LessThan } from 'typeorm';
@@ -26,8 +28,9 @@ import {
   SmsTemplateType,
 } from './templates/email-templates.service';
 import { ConfigService } from '@nestjs/config';
-import { activitiesUrl } from 'twilio/lib/jwt/taskrouter/util';
-import { User } from 'aws-sdk/clients/budgets';
+// import { activitiesUrl } from 'twilio/lib/jwt/taskrouter/util';
+// import { User } from 'aws-sdk/clients/budgets';
+// import { Role } from '../reference/entities/role.entity';
 
 @Injectable()
 export class NotificationsService {
@@ -37,6 +40,7 @@ export class NotificationsService {
     @InjectRepository(Notification)
     private notificationRepository: Repository<Notification>,
     private twilioService: TwilioService,
+    @Inject(forwardRef(() => UsersService))
     private usersService: UsersService,
     private emailTemplates: EmailTemplatesService,
     private configService: ConfigService,
@@ -409,6 +413,71 @@ export class NotificationsService {
       }
 
       // Ne pas bloquer l'inscription si l'email échoue
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  }
+
+  /**
+   * Envoie un email avec les informations de connexion
+   */
+  async sendAccountCreatedEmail(data: {
+    id: number;
+    firstName: string;
+    lastName: string;
+    email: string;
+    password: string;
+    role: string;
+    roleCode: string;
+    loginUrl: string;
+    supportEmail: string;
+    supportPhone: string;
+  }): Promise<any> {
+    try {
+      const template = this.emailTemplates.getAccountCreatedEmail({
+        firstName: data.firstName,
+        lastName: data.lastName,
+        email: data.email,
+        password: data.password,
+        role: data.role,
+        // roleCode: data.roleCode,
+        loginUrl: data.loginUrl,
+        supportEmail: data.supportEmail,
+        supportPhone: data.supportPhone,
+      });
+
+      const result = await this.twilioService.sendEmail({
+        to: data.email,
+        subject: template.subject,
+        html: template.html,
+        text: template.text,
+      });
+
+      const notification = this.notificationRepository.create({
+        recipientUserId: data.id,
+        channel: NotificationChannel.EMAIL,
+        notificationType: NotificationType.CONFIRMATION,
+        title: template.subject,
+        content: template.text,
+        context: {
+          verificationToken: null,
+          emailType: 'welcome',
+          messageId: result.messageId,
+        },
+        isSent: true,
+        sentAt: new Date(),
+      });
+
+      await this.notificationRepository.save(notification);
+
+      return {
+        success: true,
+        messageId: result.messageId,
+        provider: result.provider || 'unknown',
+      };
+    } catch (error) {
       return {
         success: false,
         error: error.message,

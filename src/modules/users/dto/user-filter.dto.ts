@@ -3,6 +3,19 @@ import { IsOptional, IsInt, IsString, IsBoolean } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class UserFilterDto {
+  @ApiProperty({ enum: ['Active', 'Deactivated', 'Pending'], required: false })
+  @IsOptional()
+  @IsString()
+  status?: string;
+
+  @ApiProperty({
+    enum: ['SUPER_ADMIN', 'ADMIN', 'COPA_MANAGER', 'EVALUATOR', 'TRAINER', 'MENTOR', 'PARTNER'],
+    required: false
+  })
+  @IsOptional()
+  @IsString()
+  role?: string;
+
   @ApiProperty({ required: false })
   @IsOptional()
   @Type(() => Number)

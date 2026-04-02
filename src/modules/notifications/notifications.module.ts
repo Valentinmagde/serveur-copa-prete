@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Notification } from './entities/notification.entity';
 import { NotificationsService } from './notifications.service';
@@ -9,11 +9,23 @@ import { SesEmailProvider } from './providers/ses-email.provider';
 import { BrevoProvider } from './providers/brevo-provider';
 import { ConfigModule } from '@nestjs/config';
 import { EmailTemplatesService } from './templates/email-templates.service';
+import { UsersService } from '../users/users.service';
+import { User } from '../users/entities/user.entity';
+import { UserRole } from '../users/entities/user-role.entity';
+import { UserConsent } from '../users/entities/user-consent.entity';
+import { Role } from '../reference/entities/role.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Notification]),
-    UsersModule,
+    TypeOrmModule.forFeature([
+      Notification,
+      User,
+      UserRole,
+      UserConsent,
+      Role,
+    ]),
+    // UsersModule,
+    forwardRef(() => UsersModule),
     ConfigModule,
   ],
   controllers: [NotificationsController],
@@ -23,7 +35,13 @@ import { EmailTemplatesService } from './templates/email-templates.service';
     SesEmailProvider,
     BrevoProvider,
     EmailTemplatesService,
+    UsersService,
   ],
-  exports: [NotificationsService, TwilioService, EmailTemplatesService],
+  exports: [
+    NotificationsService,
+    TwilioService,
+    EmailTemplatesService,
+    UsersService,
+  ],
 })
-export class NotificationsModule {}
+export class NotificationsModule { }
