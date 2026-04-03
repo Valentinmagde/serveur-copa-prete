@@ -42,7 +42,7 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
         ...configService.get('database'),
         autoLoadEntities: true,
         extra: {
-          max: 5,
+          max: 100,
           min: 1,
           idleTimeoutMillis: 5000,
           connectionTimeoutMillis: 10000,
