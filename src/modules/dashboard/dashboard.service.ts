@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between, MoreThan } from 'typeorm';
+import { Repository, Between, MoreThan, LessThan, IsNull, Not } from 'typeorm';
 import {
     StatsCardsResponseDto,
     SectorDataDto,
@@ -18,6 +18,7 @@ import { Status } from '../reference/entities/status.entity';
 import { Province } from '../reference/entities/province.entity';
 import { Commune } from '../reference/entities/commune.entity';
 import { Gender } from '../reference/entities/gender.entity';
+import { Subvention } from '../subventions/entities/subvention.entity';
 
 @Injectable()
 export class DashboardService {
@@ -40,28 +41,143 @@ export class DashboardService {
         private communeRepository: Repository<Commune>,
         @InjectRepository(Gender)
         private genderRepository: Repository<Gender>,
+        @InjectRepository(Subvention)
+        private subventionRepository: Repository<Subvention>,
     ) { }
 
     /**
      * Récupère les statistiques des cartes
      */
+    // async getStatsCards(): Promise<StatsCardsResponseDto> {
+    //     const currentDate = new Date();
+    //     const previousMonthDate = new Date();
+    //     previousMonthDate.setMonth(previousMonthDate.getMonth() - 1);
+
+    //     // Période actuelle
+    //     const [totalMpme, totalCandidatures, totalBusinessPlans, totalWomen] =
+    //         await Promise.all([
+    //             this.beneficiaryRepository.count(),
+    //             this.beneficiaryRepository.count({
+    //                 where: { isProfileComplete: true },
+    //             }),
+    //             this.businessPlanRepository.count({
+    //                 where: { submittedAt: MoreThan(new Date(0)) },
+    //             }),
+    //             this.beneficiaryRepository.count({
+    //                 where: { isProfileComplete: true },
+    //                 relations: ['user', 'user.gender'],
+    //             }).then(async (count) => {
+    //                 // Filtrage manuel pour le genre (ou utiliser une requête plus complexe)
+    //                 const beneficiaries = await this.beneficiaryRepository.find({
+    //                     where: { isProfileComplete: true },
+    //                     relations: ['user', 'user.gender'],
+    //                 });
+    //                 // console.log("beneficaires", beneficiaries[0].user);
+    //                 return beneficiaries.filter((b) => b?.user?.gender?.code === "F").length;
+    //             }),
+    //         ]);
+
+    //     // Période précédente (simulée - à adapter selon vos besoins)
+    //     const previousPeriod = {
+    //         totalMpme: Math.floor(totalMpme * 0.85),
+    //         totalCandidatures: Math.floor(totalCandidatures * 0.78),
+    //         totalBusinessPlans: Math.floor(totalBusinessPlans * 0.82),
+    //         totalWomen: Math.floor(totalWomen * 0.88),
+    //     };
+
+    //     return {
+    //         totalMpme,
+    //         totalCandidatures,
+    //         totalBusinessPlans,
+    //         totalWomen,
+    //         previousPeriod,
+    //     };
+    // }
+
     async getStatsCards(): Promise<StatsCardsResponseDto> {
-        const currentDate = new Date();
         const previousMonthDate = new Date();
         previousMonthDate.setMonth(previousMonthDate.getMonth() - 1);
 
-        // Période actuelle
-        const [totalMpme, totalCandidatures, totalBusinessPlans, totalWomen] =
-            await Promise.all([
-                this.beneficiaryRepository.count(),
-                this.beneficiaryRepository.count({
+        const [
+            totalMpme,
+            totalCandidatures,
+            totalBusinessPlans,
+            totalWomen,
+            totalRegistratedWomen,
+            totalSubventionsAccordees,
+            totalSubventionsDecessees
+        ] = await Promise.all([
+            // 1. Total MPME inscrits
+            this.beneficiaryRepository.count(),
+
+            // 2. Total candidatures (profils complets)
+            this.beneficiaryRepository.count({
+                where: { isProfileComplete: true },
+            }),
+
+            // 3. Total business plans soumis
+            this.businessPlanRepository.count({
+                where: { submittedAt: MoreThan(new Date(0)) },
+            }),
+
+            // 4. Nombre de femmes candidates
+            this.beneficiaryRepository.count({
+                where: { isProfileComplete: true },
+                relations: ['user', 'user.gender'],
+            }).then(async (count) => {
+                // Filtrage manuel pour le genre (ou utiliser une requête plus complexe)
+                const beneficiaries = await this.beneficiaryRepository.find({
                     where: { isProfileComplete: true },
+                    relations: ['user', 'user.gender'],
+                });
+                // console.log("beneficaires", beneficiaries[0].user);
+                return beneficiaries.filter((b) => b?.user?.gender?.code === "F").length;
+            }),
+
+            // 4. Nombre de femmes inscrites
+            this.beneficiaryRepository
+                .createQueryBuilder('beneficiary')
+                .innerJoin('beneficiary.user', 'user')
+                .innerJoin('user.gender', 'gender')
+                .where('gender.code = :genderCode', { genderCode: 'F' })
+                .getCount(),
+
+            // 5. Subventions accordées (nombre) - basé sur approvalDate
+            this.subventionRepository.count({
+                where: { approvalDate: Not(IsNull()) }
+            }),
+
+            // 6. Montant total des subventions décaissées - basé sur signatureDate ou approvalDate
+            this.subventionRepository
+                .createQueryBuilder('subvention')
+                .select('SUM(subvention.awardedAmount)', 'total')
+                .where('subvention.signatureDate IS NOT NULL')
+                .getRawOne()
+                .then(result => Number(result?.total || 0)),
+        ]);
+
+        // Période précédente
+        const [previousTotalMpme, previousTotalCandidatures, previousTotalBusinessPlans,
+            previousTotalWomen, previousTotalRegistratedWomen, previousSubventionsAccordees, previousSubventionsDecessees] = await Promise.all([
+                this.beneficiaryRepository.count({
+                    where: { createdAt: LessThan(previousMonthDate) }
+                }),
+                this.beneficiaryRepository.count({
+                    where: {
+                        isProfileComplete: true,
+                        createdAt: LessThan(previousMonthDate)
+                    },
                 }),
                 this.businessPlanRepository.count({
-                    where: { submittedAt: MoreThan(new Date(0)) },
+                    where: {
+                        submittedAt: LessThan(previousMonthDate)
+                    },
                 }),
                 this.beneficiaryRepository.count({
-                    where: { isProfileComplete: true },
+                    where: {
+                        isProfileComplete: true,
+                        updatedAt: LessThan(previousMonthDate)
+                    },
                     relations: ['user', 'user.gender'],
                 }).then(async (count) => {
                     // Filtrage manuel pour le genre (ou utiliser une requête plus complexe)
@@ -72,14 +188,32 @@ export class DashboardService {
                     // console.log("beneficaires", beneficiaries[0].user);
                     return beneficiaries.filter((b) => b?.user?.gender?.code === "F").length;
                 }),
+                this.beneficiaryRepository
+                    .createQueryBuilder('beneficiary')
+                    .innerJoin('beneficiary.user', 'user')
+                    .innerJoin('user.gender', 'gender')
+                    .where('gender.code = :genderCode', { genderCode: 'F' })
+                    .andWhere('beneficiary.createdAt < :previousMonthDate', { previousMonthDate })
+                    .getCount(),
+                this.subventionRepository.count({
+                    where: {
+                        approvalDate: LessThan(previousMonthDate)
+                    },
+                }),
+                this.subventionRepository
+                    .createQueryBuilder('subvention')
+                    .select('SUM(subvention.awardedAmount)', 'total')
+                    .where('subvention.signatureDate < :previousMonthDate', { previousMonthDate })
+                    .getRawOne()
+                    .then(result => Number(result?.total || 0)),
             ]);
 
-        // Période précédente (simulée - à adapter selon vos besoins)
-        const previousPeriod = {
-            totalMpme: Math.floor(totalMpme * 0.85),
-            totalCandidatures: Math.floor(totalCandidatures * 0.78),
-            totalBusinessPlans: Math.floor(totalBusinessPlans * 0.82),
-            totalWomen: Math.floor(totalWomen * 0.88),
+        const emploisCrees = 0;
+        const previousEmploisCrees = 0;
+
+        const calculateVariation = (current: number, previous: number): number => {
+            if (previous === 0) return current > 0 ? 100 : 0;
+            return Number(((current - previous) / previous * 100).toFixed(1));
         };
 
         return {
@@ -87,7 +221,30 @@ export class DashboardService {
             totalCandidatures,
             totalBusinessPlans,
             totalWomen,
-            previousPeriod,
+            totalRegistratedWomen,
+            totalSubventionsAccordees,
+            totalSubventionsDecessees,
+            emploisCrees,
+            previousPeriod: {
+                totalMpme: previousTotalMpme,
+                totalCandidatures: previousTotalCandidatures,
+                totalBusinessPlans: previousTotalBusinessPlans,
+                totalWomen: previousTotalWomen,
+                totalRegistratedWomen: previousTotalRegistratedWomen,
+                totalSubventionsAccordees: previousSubventionsAccordees,
+                totalSubventionsDecessees: previousSubventionsDecessees,
+                emploisCrees: previousEmploisCrees,
+            },
+            variations: {
+                totalMpme: calculateVariation(totalMpme, previousTotalMpme),
+                totalCandidatures: calculateVariation(totalCandidatures, previousTotalCandidatures),
+                totalBusinessPlans: calculateVariation(totalBusinessPlans, previousTotalBusinessPlans),
+                totalWomen: calculateVariation(totalWomen, previousTotalWomen),
+                totalRegistratedWomen: calculateVariation(totalRegistratedWomen, previousTotalRegistratedWomen),
+                totalSubventionsAccordees: calculateVariation(totalSubventionsAccordees, previousSubventionsAccordees),
+                totalSubventionsDecessees: calculateVariation(totalSubventionsDecessees, previousSubventionsDecessees),
+                emploisCrees: calculateVariation(emploisCrees, previousEmploisCrees),
+            },
         };
     }
 

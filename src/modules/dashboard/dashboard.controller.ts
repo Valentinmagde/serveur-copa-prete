@@ -4,6 +4,7 @@ import { DashboardService } from './dashboard.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { Public } from '@/common/decorators/public.decorator';
 
 @ApiTags('dashboard')
 @Controller('dashboard')
@@ -12,8 +13,9 @@ import { Roles } from '../../common/decorators/roles.decorator';
 export class DashboardController {
     constructor(private readonly dashboardService: DashboardService) { }
 
+    @Public()
     @Get('stats')
-    @Roles('SUPER_ADMIN', 'ADMIN', 'COPA_MANAGER')
+    // @Roles('SUPER_ADMIN', 'ADMIN', 'COPA_MANAGER')
     @ApiOperation({ summary: 'Récupère les statistiques des cartes' })
     async getStatsCards() {
         return this.dashboardService.getStatsCards();

@@ -10,6 +10,7 @@ import { Status } from '../reference/entities/status.entity';
 import { Province } from '../reference/entities/province.entity';
 import { Commune } from '../reference/entities/commune.entity';
 import { Gender } from '../reference/entities/gender.entity';
+import { Subvention } from '../subventions/entities/subvention.entity';
 
 @Module({
     imports: [
@@ -22,6 +23,7 @@ import { Gender } from '../reference/entities/gender.entity';
             Province,
             Commune,
             Gender,
+            Subvention
         ]),
     ],
     controllers: [DashboardController],

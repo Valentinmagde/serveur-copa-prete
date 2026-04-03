@@ -1,17 +1,55 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class PreviousPeriodDto {
-    @ApiProperty({ description: 'Total MPME de la période précédente', example: 850 })
+    @ApiProperty({ description: 'Nombre total de MPME inscrites (période précédente)', example: 1050 })
     totalMpme: number;
 
-    @ApiProperty({ description: 'Total candidatures de la période précédente', example: 650 })
+    @ApiProperty({ description: 'Nombre de candidatures complètes (période précédente)', example: 850 })
     totalCandidatures: number;
 
-    @ApiProperty({ description: 'Total plans d\'affaires de la période précédente', example: 350 })
+    @ApiProperty({ description: 'Nombre de plans d\'affaires soumis (période précédente)', example: 400 })
     totalBusinessPlans: number;
 
-    @ApiProperty({ description: 'Total femmes de la période précédente', example: 380 })
+    @ApiProperty({ description: 'Nombre de femmes entrepreneurs (période précédente)', example: 380 })
     totalWomen: number;
+
+    @ApiProperty({ description: 'Nombre de femmes entrepreneurs (période précédente)', example: 380 })
+    totalRegistratedWomen: number;
+
+    @ApiProperty({ description: 'Nombre de subventions accordées (période précédente)', example: 50 })
+    totalSubventionsAccordees: number;
+
+    @ApiProperty({ description: 'Montant total des subventions décaissées (période précédente)', example: 250000000 })
+    totalSubventionsDecessees: number;
+
+    @ApiProperty({ description: 'Nombre d\'emplois créés (période précédente)', example: 320 })
+    emploisCrees: number;
+}
+
+export class VariationsDto {
+    @ApiProperty({ description: 'Variation du nombre de MPME (%)', example: 12.5 })
+    totalMpme: number;
+
+    @ApiProperty({ description: 'Variation des candidatures (%)', example: 8.3 })
+    totalCandidatures: number;
+
+    @ApiProperty({ description: 'Variation des plans d\'affaires (%)', example: 15.2 })
+    totalBusinessPlans: number;
+
+    @ApiProperty({ description: 'Variation du nombre de femmes (%)', example: 10.1 })
+    totalWomen: number;
+
+    @ApiProperty({ description: 'Variation du nombre de femmes (%)', example: 10.1 })
+    totalRegistratedWomen: number;
+
+    @ApiProperty({ description: 'Variation des subventions accordées (%)', example: 20.0 })
+    totalSubventionsAccordees: number;
+
+    @ApiProperty({ description: 'Variation des montants décaissés (%)', example: 18.5 })
+    totalSubventionsDecessees: number;
+
+    @ApiProperty({ description: 'Variation des emplois créés (%)', example: 15.0 })
+    emploisCrees: number;
 }
 
 export class StatsCardsResponseDto {
@@ -27,8 +65,23 @@ export class StatsCardsResponseDto {
     @ApiProperty({ description: 'Nombre de femmes entrepreneurs', example: 432 })
     totalWomen: number;
 
+    @ApiProperty({ description: 'Nombre de femmes entrepreneurs', example: 432 })
+    totalRegistratedWomen: number;
+
+    @ApiProperty({ description: 'Nombre de subventions accordées', example: 75 })
+    totalSubventionsAccordees: number;
+
+    @ApiProperty({ description: 'Montant total des subventions décaissées (BIF)', example: 450000000 })
+    totalSubventionsDecessees: number;
+
+    @ApiProperty({ description: 'Nombre d\'emplois créés', example: 500 })
+    emploisCrees: number;
+
     @ApiProperty({ description: 'Données de la période précédente pour comparaison', type: PreviousPeriodDto })
     previousPeriod: PreviousPeriodDto;
+
+    @ApiProperty({ description: 'Variations en pourcentage par rapport à la période précédente', type: VariationsDto, required: false })
+    variations?: VariationsDto;
 }
 
 export class SectorDataDto {

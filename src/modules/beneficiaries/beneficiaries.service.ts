@@ -1214,21 +1214,21 @@ export class BeneficiariesService {
   ) {
     const { step1, step2, step3 } = updateDto;
 
+    // Démarrer la transaction
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
     // Validation des étapes de mise à jour
     if (step1) {
       await this.validateStep1ForUpdate(step1, beneficiaryId);
     }
     if (step2) {
-      this.validateStep2ForUpdate(step2);
+      await this.validateStep2ForUpdate(step2, beneficiaryId, queryRunner);
     }
     if (step3) {
       this.validateStep3(step3);
     }
-
-    // Démarrer la transaction
-    const queryRunner = this.dataSource.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
 
     try {
       // Récupérer le bénéficiaire avec toutes ses relations
@@ -1786,13 +1786,48 @@ export class BeneficiariesService {
     // Autres validations spécifiques à la mise à jour
   }
 
-  private validateStep2ForUpdate(step2: any) {
+  private async validateStep2ForUpdate(
+    step2: any,
+    beneficiaryId?: string,
+    queryRunner?: any,
+  ) {
     // Validations spécifiques pour la mise à jour de l'entreprise
     if (step2.companyExists === 'yes') {
       if (!step2.companyName) {
         throw new BadRequestException("Le nom de l'entreprise est requis");
       }
       // Autres validations...
+    }
+
+    const companyStatus = step2.companyStatus;
+    if (companyStatus && beneficiaryId && queryRunner) {
+      const requiredDocs =
+        companyStatus === 'formal'
+          ? ['idCard', 'commerceRegister', 'bankStatements']
+          : ['idCard', 'communalAttestation', 'bankStatements'];
+
+      const documentRepo = queryRunner.manager.getRepository(Document);
+
+      const uploadedDocs = await documentRepo
+        .createQueryBuilder('document')
+        .where('document.entity_id = :entityId', { entityId: beneficiaryId })
+        .andWhere('document.entity_type = :entityType', {
+          entityType: 'beneficiary',
+        })
+        .andWhere('document.document_key IN (:...keys)', { keys: requiredDocs })
+        .getMany();
+
+      const uploadedKeys = uploadedDocs.map((doc) => doc.documentKey);
+      const missingDocs = requiredDocs.filter(
+        (key) => !uploadedKeys.includes(key),
+      );
+
+      if (missingDocs.length > 0) {
+        const missingNames = missingDocs.join(', ');
+        throw new BadRequestException(
+          `Documents requis manquants: ${missingNames}. Veuillez uploader tous les documents requis avant de continuer.`
+        );
+      }
     }
   }
 
