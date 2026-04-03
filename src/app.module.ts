@@ -41,6 +41,18 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
       useFactory: (configService: ConfigService) => ({
         ...configService.get('database'),
         autoLoadEntities: true,
+        extra: {
+          max: 20,
+          idleTimeoutMillis: 30000,
+          connectionTimeoutMillis: 5000,
+          statement_timeout: 30000,
+          query_timeout: 30000,
+        },
+        // ✅ Timeout global
+        connectTimeoutMS: 10000,
+        // ✅ Logs pour debug
+        logging: ['error', 'warn'],
+        logger: 'advanced-console',
       }),
       inject: [ConfigService],
     }),
