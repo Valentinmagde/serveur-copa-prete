@@ -1224,7 +1224,7 @@ export class BeneficiariesService {
       await this.validateStep1ForUpdate(step1, beneficiaryId);
     }
     if (step2) {
-      await this.validateStep2ForUpdate(step2, beneficiaryId, queryRunner);
+      this.validateStep2ForUpdate(step2);
     }
     if (step3) {
       this.validateStep3(step3);
@@ -1574,6 +1574,18 @@ export class BeneficiariesService {
         }
 
         if (step3?.isProfileCompleted) {
+          if (step2?.companyStatus || existingBeneficiary.companyType) {
+            const companyStatus =
+              step2?.companyStatus || existingBeneficiary.companyType;
+            if (companyStatus === 'formal' || companyStatus === 'informal') {
+              await this.validateRequiredDocuments(
+                parseInt(beneficiaryId),
+                companyStatus,
+                queryRunner,
+              );
+            }
+          }
+
           beneficiary.isProfileComplete = step3.isProfileCompleted;
 
           const nextNumber = beneficiary.id;
@@ -1786,11 +1798,7 @@ export class BeneficiariesService {
     // Autres validations spécifiques à la mise à jour
   }
 
-  private async validateStep2ForUpdate(
-    step2: any,
-    beneficiaryId?: string,
-    queryRunner?: any,
-  ) {
+  private validateStep2ForUpdate(step2: any) {
     // Validations spécifiques pour la mise à jour de l'entreprise
     if (step2.companyExists === 'yes') {
       if (!step2.companyName) {
@@ -1798,43 +1806,58 @@ export class BeneficiariesService {
       }
       // Autres validations...
     }
-
-    const companyStatus = step2.companyStatus;
-    if (companyStatus && beneficiaryId && queryRunner) {
-      const requiredDocs =
-        companyStatus === 'formal'
-          ? ['idCard', 'commerceRegister', 'bankStatements']
-          : ['idCard', 'communalAttestation', 'bankStatements'];
-
-      const documentRepo = queryRunner.manager.getRepository(Document);
-
-      const uploadedDocs = await documentRepo
-        .createQueryBuilder('document')
-        .where('document.entity_id = :entityId', { entityId: beneficiaryId })
-        .andWhere('document.entity_type = :entityType', {
-          entityType: 'beneficiary',
-        })
-        .andWhere('document.document_key IN (:...keys)', { keys: requiredDocs })
-        .getMany();
-
-      const uploadedKeys = uploadedDocs.map((doc) => doc.documentKey);
-      const missingDocs = requiredDocs.filter(
-        (key) => !uploadedKeys.includes(key),
-      );
-
-      if (missingDocs.length > 0) {
-        const missingNames = missingDocs.join(', ');
-        throw new BadRequestException(
-          `Documents requis manquants: ${missingNames}. Veuillez uploader tous les documents requis avant de continuer.`
-        );
-      }
-    }
   }
 
   private validateStep3(dto: UpdateStep3Dto): void {
     if (!dto.acceptCGU || !dto.acceptPrivacyPolicy || !dto.certifyAccuracy) {
       throw new BadRequestException(
         "Vous devez accepter les conditions générales, la politique de confidentialité et certifier l'exactitude des informations",
+      );
+    }
+  }
+
+  private async validateRequiredDocuments(
+    beneficiaryId: number,
+    companyStatus: 'formal' | 'informal',
+    queryRunner: any,
+  ): Promise<void> {
+    const requiredDocs =
+      companyStatus === 'formal'
+        ? ['idCard', 'commerceRegister', 'bankStatements']
+        : ['idCard', 'communalAttestation', 'bankStatements'];
+
+    const documentRepo = queryRunner.manager.getRepository(Document);
+
+    // Compter les documents uniques par clé (le plus récent)
+    const documents = await documentRepo
+      .createQueryBuilder('doc')
+      .select('DISTINCT ON (doc.document_key) doc.*')
+      .where('doc.entity_id = :entityId', { entityId: beneficiaryId })
+      .andWhere('doc.entity_type = :entityType', { entityType: 'beneficiary' })
+      .andWhere('doc.document_key IN (:...keys)', { keys: requiredDocs })
+      .orderBy('doc.document_key, doc.created_at', 'DESC')
+      .getRawMany();
+
+    const uploadedKeys = documents.map((doc) => doc.document_key);
+    const missingDocs = requiredDocs.filter(
+      (key) => !uploadedKeys.includes(key),
+    );
+
+    if (missingDocs.length > 0) {
+      const missingNames = missingDocs
+        .map((key) => {
+          const labels: Record<string, string> = {
+            idCard: `Carte d'identité`,
+            commerceRegister: 'Registre de commerce',
+            bankStatements: 'Relevés bancaires',
+            communalAttestation: 'Attestation communale',
+          };
+          return labels[key] || key;
+        })
+        .join(', ');
+
+      throw new BadRequestException(
+        `Documents requis manquants: ${missingNames}. Veuillez uploader tous les documents requis avant de soumettre.`
       );
     }
   }
