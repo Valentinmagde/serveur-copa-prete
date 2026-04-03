@@ -1856,8 +1856,12 @@ export class BeneficiariesService {
         })
         .join(', ');
 
+      this.logger.error(
+        `Documents requis manquants: ${missingNames}. Veuillez uploader tous les documents requis avant de soumettre.0`,
+      );
+
       throw new BadRequestException(
-        `Documents requis manquants: ${missingNames}. Veuillez uploader tous les documents requis avant de soumettre.`
+        `Documents requis manquants: ${missingNames}. Veuillez uploader tous les documents requis avant de soumettre.`,
       );
     }
   }
