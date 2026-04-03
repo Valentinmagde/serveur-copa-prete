@@ -1002,7 +1002,7 @@ export class AuthService {
       const rateLimitKey = `forgot_password:rate:${user.id}`;
       const requests = await this.redis.get(rateLimitKey);
 
-      if (requests && parseInt(requests) >= 3) {
+      if (requests && parseInt(requests) >= 10) {
         this.logger.warn(`Rate limit dépassé pour l'utilisateur ${user.id}`);
         throw new BadRequestException(
           'Trop de tentatives. Veuillez attendre 1 heure avant de réessayer.',
