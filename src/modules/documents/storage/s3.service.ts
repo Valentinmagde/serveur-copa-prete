@@ -10,15 +10,15 @@ export class S3Service {
 
   constructor(private configService: ConfigService) {
     const region = this.configService.get<string>('aws.region');
-    const accessKeyId = this.configService.get<string>('aws.accessKeyId');
-    const secretAccessKey = this.configService.get<string>(
-      'aws.secretAccessKey',
-    );
+    // const accessKeyId = this.configService.get<string>('aws.accessKeyId');
+    // const secretAccessKey = this.configService.get<string>(
+    //   'aws.secretAccessKey',
+    // );
 
     this.s3 = new AWS.S3({
       region: region || 'eu-west-3',
-      accessKeyId: accessKeyId,
-      secretAccessKey: secretAccessKey,
+      // accessKeyId: accessKeyId,
+      // secretAccessKey: secretAccessKey,
     });
 
     this.bucket =
