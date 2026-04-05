@@ -1,4 +1,4 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { DashboardService } from './dashboard.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -70,5 +70,17 @@ export class DashboardController {
     @ApiOperation({ summary: 'Récupère toutes les données du dashboard' })
     async getFullDashboardData() {
         return this.dashboardService.getFullDashboardData();
+    }
+
+    @Get('company-status')
+    @ApiOperation({ summary: 'Analyse par statut d\'entreprise (Formel/Informel)' })
+    async getCompanyStatusAnalysis() {
+        return this.dashboardService.getCompanyStatusAnalysis();
+    }
+
+    @Get('trend/:period')
+    @ApiOperation({ summary: 'Évolution des inscriptions par période (jour/semaine/mois)' })
+    async getRegistrationTrendByPeriod(@Param('period') period: string) {
+        return this.dashboardService.getRegistrationTrendByPeriod(period);
     }
 }

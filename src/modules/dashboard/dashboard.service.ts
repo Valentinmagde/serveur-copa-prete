@@ -254,7 +254,14 @@ export class DashboardService {
     async getCandidatesBySector(): Promise<SectorDataDto[]> {
         const beneficiaries = await this.beneficiaryRepository.find({
             where: { isProfileComplete: true },
-            relations: ['user', 'user.gender', 'businessPlans', 'businessPlans.businessSector', 'company', 'company.primarySector'],
+            relations: [
+                'user',
+                'user.gender',
+                'businessPlans',
+                'businessPlans.businessSector',
+                'company',
+                'company.primarySector'
+            ],
         });
 
         const sectorMap = new Map<string, SectorDataDto>();
@@ -295,12 +302,17 @@ export class DashboardService {
     async getRegionalInscriptions(): Promise<RegionalDataDto[]> {
         // Récupérer tous les utilisateurs avec leurs adresses et bénéficiaires
         const users = await this.userRepository.find({
-            relations: ['primaryAddress', 'primaryAddress.commune', 'primaryAddress.commune.province', 'beneficiary'],
-            // where: {
-            //     beneficiary: {
-            //         isProfileComplete: true,
-            //     },
-            // },
+            relations: [
+                'primaryAddress',
+                'primaryAddress.commune',
+                'primaryAddress.commune.province',
+                'beneficiary',
+            ],
+            where: {
+                beneficiary: {
+                    isProfileComplete: true,
+                },
+            },
         });
 
         const provinceMap = new Map<string, Map<string, number>>();
@@ -519,6 +531,26 @@ export class DashboardService {
         return result.sort((a, b) => b.count - a.count);
     }
 
+    async getCompanyStatusAnalysis(): Promise<Array<{ status: string; count: number; percentage: number }>> {
+        const total = await this.beneficiaryRepository.count({
+            where: { companyType: Not(IsNull()) }
+        });
+
+        const stats = await this.beneficiaryRepository
+            .createQueryBuilder('b')
+            .select('b.companyType', 'status')
+            .addSelect('COUNT(*)', 'count')
+            .where('b.companyType IS NOT NULL and b.isProfileComplete = true')
+            .groupBy('b.companyType')
+            .getRawMany();
+
+        return stats.map(item => ({
+            status: item.status,
+            count: parseInt(item.count),
+            percentage: total > 0 ? (parseInt(item.count) / total) * 100 : 0,
+        }));
+    }
+
     /**
      * Récupère les dernières candidatures
      */
@@ -526,7 +558,7 @@ export class DashboardService {
         const beneficiaries = await this.beneficiaryRepository.find({
             where: { isProfileComplete: true },
             relations: ['user', 'company', 'company.primarySector', 'status'],
-            order: { applicationSubmittedAt: 'DESC', createdAt: 'DESC' },
+            order: { updatedAt: 'DESC', createdAt: 'DESC' },
             take: limit,
         });
 
@@ -547,11 +579,136 @@ export class DashboardService {
             lastName: beneficiary.user?.lastName || '',
             email: beneficiary.user?.email || '',
             registrationDate: beneficiary.createdAt,
-            submissionDate: beneficiary.applicationSubmittedAt || null,
+            submissionDate: beneficiary.updatedAt || null,
             sector: beneficiary.company?.primarySector?.nameFr || null,
             status: beneficiary.status?.name || 'Inscrit',
             statusColor: statusColors[beneficiary.status?.name || 'Inscrit'] || 'default',
         }));
+    }
+
+    // dashboard.service.ts
+    // dashboard.service.ts
+    async getRegistrationTrendByPeriod(period: string = 'month'): Promise<any[]> {
+        const groupBy = this.getGroupByExpression(period);
+
+        // Inscriptions totales
+        const registrations = await this.beneficiaryRepository
+            .createQueryBuilder('b')
+            .select(`${groupBy.replace('created_at', 'b.created_at')} as date`)
+            .addSelect('COUNT(*)', 'count')
+            .groupBy(groupBy.replace('created_at', 'b.created_at'))
+            .orderBy('date', 'ASC')
+            .getRawMany();
+
+        // Profils complets
+        const completed = await this.beneficiaryRepository
+            .createQueryBuilder('b')
+            .select(`${groupBy.replace('created_at', 'b.profile_completed_at')} as date`)
+            .addSelect('COUNT(*)', 'count')
+            .where('b.profile_completion_percentage = :complete', { complete: 100 })
+            .groupBy(groupBy.replace('created_at', 'b.profile_completed_at'))
+            .orderBy('date', 'ASC')
+            .getRawMany();
+
+        // Soumis
+        const submitted = await this.beneficiaryRepository
+            .createQueryBuilder('b')
+            .select(`${groupBy.replace('created_at', 'b.updated_at')} as date`)
+            .addSelect('COUNT(*)', 'count')
+            .where('b.is_profile_complete = :complete', { complete: true })
+            .groupBy(groupBy.replace('created_at', 'b.updated_at'))
+            .orderBy('date', 'ASC')
+            .getRawMany();
+
+        // Fusionner les résultats en gardant la date brute pour le tri
+        const datesMap = new Map();
+
+        registrations.forEach(r => {
+            const dateBrute = new Date(r.date);
+            const label = this.formatDateLabel(dateBrute, period);
+            datesMap.set(label, {
+                label,
+                dateTri: dateBrute.getTime(), // Pour le tri
+                registrations: parseInt(r.count),
+                completed: 0,
+                submitted: 0
+            });
+        });
+
+        completed.forEach(c => {
+            const dateBrute = new Date(c.date);
+            const label = this.formatDateLabel(dateBrute, period);
+            if (datesMap.has(label)) {
+                datesMap.get(label).completed = parseInt(c.count);
+            } else {
+                datesMap.set(label, {
+                    label,
+                    dateTri: dateBrute.getTime(),
+                    registrations: 0,
+                    completed: parseInt(c.count),
+                    submitted: 0
+                });
+            }
+        });
+
+        submitted.forEach(s => {
+            const dateBrute = new Date(s.date);
+            const label = this.formatDateLabel(dateBrute, period);
+            if (datesMap.has(label)) {
+                datesMap.get(label).submitted = parseInt(s.count);
+            } else {
+                datesMap.set(label, {
+                    label,
+                    dateTri: dateBrute.getTime(),
+                    registrations: 0,
+                    completed: 0,
+                    submitted: parseInt(s.count)
+                });
+            }
+        });
+
+        // Trier par date brute (ordre chronologique)
+        return Array.from(datesMap.values())
+            .sort((a, b) => a.dateTri - b.dateTri)
+            .map(({ label, registrations, completed, submitted }) => ({
+                label,
+                registrations,
+                completed,
+                submitted
+            }));
+    }
+
+    private getGroupByExpression(period: string): string {
+        switch (period) {
+            case 'day':
+                return 'DATE(created_at)';
+            case 'week':
+                return 'DATE_TRUNC(\'week\', created_at)';
+            case 'month':
+            default:
+                return 'DATE_TRUNC(\'month\', created_at)';
+        }
+    }
+
+    private formatDateLabel(date: Date, period: string): string {
+        const d = new Date(date);
+        switch (period) {
+            case 'day':
+                return `${d.getDate()}/${d.getMonth() + 1}`;
+            case 'week':
+                return `S${this.getWeekNumber(d)}`;
+            case 'month':
+            default:
+                return d.toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' });
+        }
+    }
+
+    private getWeekNumber(date: Date): number {
+        const d = new Date(date);
+        d.setHours(0, 0, 0, 0);
+        d.setDate(d.getDate() + 3 - (d.getDay() + 6) % 7);
+        const week1 = new Date(d.getFullYear(), 0, 4);
+        return 1 + Math.round(((d.getTime() - week1.getTime()) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7);
     }
 
     /**
