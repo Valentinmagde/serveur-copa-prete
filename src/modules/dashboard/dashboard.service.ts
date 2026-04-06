@@ -267,7 +267,7 @@ export class DashboardService {
         const sectorMap = new Map<string, SectorDataDto>();
 
         for (const beneficiary of beneficiaries) {
-            const sector = beneficiary?.company?.primarySector?.nameFr || 'Non spécifié';
+            const sector = beneficiary?.company?.primarySector?.nameFr;
 
             if (!sectorMap.has(sector)) {
                 sectorMap.set(sector, {
@@ -587,40 +587,17 @@ export class DashboardService {
     }
 
     // dashboard.service.ts
-    // dashboard.service.ts
     async getRegistrationTrendByPeriod(period: string = 'month'): Promise<any[]> {
-        const groupBy = this.getGroupByExpression(period);
-
         // Inscriptions totales
-        const registrations = await this.beneficiaryRepository
-            .createQueryBuilder('b')
-            .select(`${groupBy.replace('created_at', 'b.created_at')} as date`)
-            .addSelect('COUNT(*)', 'count')
-            .groupBy(groupBy.replace('created_at', 'b.created_at'))
-            .orderBy('date', 'ASC')
-            .getRawMany();
+        const registrations = await this.getRegistrationsByPeriod(period);
 
         // Profils complets
-        const completed = await this.beneficiaryRepository
-            .createQueryBuilder('b')
-            .select(`${groupBy.replace('created_at', 'b.profile_completed_at')} as date`)
-            .addSelect('COUNT(*)', 'count')
-            .where('b.profile_completion_percentage = :complete', { complete: 100 })
-            .groupBy(groupBy.replace('created_at', 'b.profile_completed_at'))
-            .orderBy('date', 'ASC')
-            .getRawMany();
+        const completed = await this.getCompletedProfilesByPeriod(period);
 
         // Soumis
-        const submitted = await this.beneficiaryRepository
-            .createQueryBuilder('b')
-            .select(`${groupBy.replace('created_at', 'b.updated_at')} as date`)
-            .addSelect('COUNT(*)', 'count')
-            .where('b.is_profile_complete = :complete', { complete: true })
-            .groupBy(groupBy.replace('created_at', 'b.updated_at'))
-            .orderBy('date', 'ASC')
-            .getRawMany();
+        const submitted = await this.getSubmittedBeneficiariesByPeriod(period);
 
-        // Fusionner les résultats en gardant la date brute pour le tri
+        // Fusionner les résultats
         const datesMap = new Map();
 
         registrations.forEach(r => {
@@ -628,7 +605,7 @@ export class DashboardService {
             const label = this.formatDateLabel(dateBrute, period);
             datesMap.set(label, {
                 label,
-                dateTri: dateBrute.getTime(), // Pour le tri
+                dateTri: dateBrute.getTime(),
                 registrations: parseInt(r.count),
                 completed: 0,
                 submitted: 0
@@ -667,8 +644,8 @@ export class DashboardService {
             }
         });
 
-        // Trier par date brute (ordre chronologique)
-        return Array.from(datesMap.values())
+        // Trier et filtrer les zéros
+        let result = Array.from(datesMap.values())
             .sort((a, b) => a.dateTri - b.dateTri)
             .map(({ label, registrations, completed, submitted }) => ({
                 label,
@@ -676,17 +653,58 @@ export class DashboardService {
                 completed,
                 submitted
             }));
+
+        // ✅ Filtrer les entrées où toutes les valeurs sont à 0
+        result = result.filter(item =>
+            item.registrations > 0 || item.completed > 0 || item.submitted > 0
+        );
+
+        return result;
     }
 
-    private getGroupByExpression(period: string): string {
+    private async getRegistrationsByPeriod(period: string): Promise<any[]> {
+        const groupBy = this.getGroupByExpression(period, 'b.created_at');
+        return this.beneficiaryRepository
+            .createQueryBuilder('b')
+            .select(`${groupBy} as date`)
+            .addSelect('COUNT(*)', 'count')
+            .groupBy(groupBy)
+            .orderBy('date', 'ASC')
+            .getRawMany();
+    }
+
+    private async getCompletedProfilesByPeriod(period: string): Promise<any[]> {
+        const groupBy = this.getGroupByExpression(period, 'b.profile_completed_at');
+        return this.beneficiaryRepository
+            .createQueryBuilder('b')
+            .select(`${groupBy} as date`)
+            .addSelect('COUNT(*)', 'count')
+            .where('b.profile_completion_percentage = :complete', { complete: 100 })
+            .groupBy(groupBy)
+            .orderBy('date', 'ASC')
+            .getRawMany();
+    }
+
+    private async getSubmittedBeneficiariesByPeriod(period: string): Promise<any[]> {
+        const groupBy = this.getGroupByExpression(period, 'b.updated_at');
+        return this.beneficiaryRepository
+            .createQueryBuilder('b')
+            .select(`${groupBy} as date`)
+            .addSelect('COUNT(*)', 'count')
+            .where('b.is_profile_complete = :complete', { complete: true })
+            .groupBy(groupBy)
+            .orderBy('date', 'ASC')
+            .getRawMany();
+    }
+
+    private getGroupByExpression(period: string, column: string): string {
         switch (period) {
             case 'day':
-                return 'DATE(created_at)';
-            case 'week':
-                return 'DATE_TRUNC(\'week\', created_at)';
+                // Grouper par jour de semaine (1-7)
+                return `EXTRACT(DOW FROM ${column})`;
             case 'month':
             default:
-                return 'DATE_TRUNC(\'month\', created_at)';
+                return `DATE_TRUNC('month', ${column})`;
         }
     }
 
@@ -694,21 +712,15 @@ export class DashboardService {
         const d = new Date(date);
         switch (period) {
             case 'day':
-                return `${d.getDate()}/${d.getMonth() + 1}`;
-            case 'week':
-                return `S${this.getWeekNumber(d)}`;
+                const jours = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+                // Ajuster l'index car getDay() retourne 0 pour dimanche
+                let index = d.getDay();
+                if (index === 0) index = 7;
+                return jours[index - 1];
             case 'month':
             default:
-                return d.toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' });
+                return d.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
         }
-    }
-
-    private getWeekNumber(date: Date): number {
-        const d = new Date(date);
-        d.setHours(0, 0, 0, 0);
-        d.setDate(d.getDate() + 3 - (d.getDay() + 6) % 7);
-        const week1 = new Date(d.getFullYear(), 0, 4);
-        return 1 + Math.round(((d.getTime() - week1.getTime()) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7);
     }
 
     /**
