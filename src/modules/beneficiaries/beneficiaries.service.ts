@@ -251,7 +251,7 @@ export class BeneficiariesService {
     }
 
     const [beneficiaries, total] = await queryBuilder
-      .orderBy('beneficiary.createdAt', 'ASC')
+      .orderBy('beneficiary.createdAt', 'DESC')
       .skip(skip)
       .take(take)
       .getManyAndCount();
