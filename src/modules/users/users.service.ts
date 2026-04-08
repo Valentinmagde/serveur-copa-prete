@@ -45,7 +45,7 @@ export class UsersService {
     @Inject(forwardRef(() => NotificationsService))
     private readonly notificationsService: NotificationsService,
     private readonly s3Service: S3Service,
-  ) { }
+  ) {}
 
   async create(createUserDto: CreateUserDto): Promise<User> {
     const existingUser = await this.userRepository.findOne({
@@ -832,8 +832,8 @@ export class UsersService {
     plainPassword: string,
   ): Promise<void> {
     try {
-      const frontendUrl =
-        this.configService.get('APP_FRONTEND_URL') || 'http://localhost:5173';
+      const backofficeUrl =
+        this.configService.get('APP_BACKOFFICE_URL') || 'http://localhost:3002';
 
       // Préparer les données pour l'email
       const emailData = {
@@ -844,7 +844,7 @@ export class UsersService {
         password: plainPassword,
         role: role.name,
         roleCode: role.code,
-        loginUrl: `${frontendUrl}/login`,
+        loginUrl: `${backofficeUrl}`,
         supportEmail:
           this.configService.get('SUPPORT_EMAIL') || 'support@copa-prete.bi',
         supportPhone: this.configService.get('SUPPORT_PHONE') || '+257XXXXXXXX',

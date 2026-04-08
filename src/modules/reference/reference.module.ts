@@ -16,6 +16,7 @@ import { BusinessPlanSectionType } from './entities/business-plan-section-type.e
 import { DocumentType } from '../documents/entities/document-type.entity';
 import { ComplaintType } from '../complaints/entities/complaint-type.entity';
 import { CopaPhase } from './entities/copa-phase.entity';
+import { CopaEditionsController } from './copa-editions.controller';
 
 @Module({
   imports: [
@@ -35,7 +36,7 @@ import { CopaPhase } from './entities/copa-phase.entity';
       ComplaintType,
     ]),
   ],
-  controllers: [ReferenceController],
+  controllers: [ReferenceController, CopaEditionsController],
   providers: [ReferenceService, CopaEditionsService],
   exports: [ReferenceService, CopaEditionsService],
 })
