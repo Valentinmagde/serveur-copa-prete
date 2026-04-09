@@ -195,10 +195,20 @@ export class BeneficiariesService {
       });
     }
 
+    // if (sector) {
+    //   queryBuilder.andWhere(
+    //     '(primarySector.code = :sector OR beneficiary.otherSector ILIKE :sectorSearch)',
+    //     { sector, sectorSearch: `%${sector}%` },
+    //   );
+    // }
+
     if (sector) {
       queryBuilder.andWhere(
-        '(primarySector.code = :sector OR beneficiary.otherSector ILIKE :sectorSearch)',
-        { sector, sectorSearch: `%${sector}%` },
+        '(beneficiary.projectSectors @> :sectorJson OR beneficiary.otherSector ILIKE :sectorSearch)',
+        {
+          sectorJson: JSON.stringify([sector]),
+          sectorSearch: `%${sector}%`,
+        },
       );
     }
 
@@ -222,9 +232,8 @@ export class BeneficiariesService {
 
     if (minAmount !== undefined) {
       queryBuilder.andWhere(
-        'CAST(beneficiary.requestedSubsidyAmount AS DECIMAL) >= :minAmount', {
-          minAmount,
-        },
+        'CAST(beneficiary.requestedSubsidyAmount AS DECIMAL) >= :minAmount',
+        { minAmount },
       );
     }
 
@@ -1938,19 +1947,43 @@ export class BeneficiariesService {
   }
 
   async preselect(id: number, comment: string, validatorId: number) {
-    const beneficiary = await this.findById(id);
+    // Démarrer une transaction
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
 
-    const status = await this.statusRepository.findOne({
-      where: { code: 'PRESELECTED', entityType: 'BENEFICIARY' },
-    });
-    if (!status) throw new NotFoundException('Statut PRESELECTED introuvable');
+    try {
+      const beneficiary = await this.beneficiaryRepository.findOne({
+        where: { id },
+      });
 
-    beneficiary.statusId = status.id;
-    beneficiary.preSelectedAt = new Date();
-    beneficiary.preSelectedByUserId = validatorId;
+      if (!beneficiary) throw new NotFoundException('Bénéficiaire introuvable');
 
-    await this.beneficiaryRepository.save(beneficiary);
-    return { success: true, message: 'Candidat présélectionné avec succès' };
+      const status = await this.statusRepository.findOne({
+        where: { code: 'PRE_SELECTED', entityType: 'BENEFICIARY' },
+      });
+
+      if (!status)
+        throw new NotFoundException('Statut PRESELECTED introuvable');
+
+      beneficiary.statusId = status.id;
+      beneficiary.preSelectedAt = new Date();
+      beneficiary.preSelectedByUserId = validatorId;
+      beneficiary.preSelectedComment = comment;
+
+      await queryRunner.manager.save(beneficiary);
+
+      // ✅ Commit explicite
+      await queryRunner.commitTransaction();
+
+      return { success: true, message: 'Candidat présélectionné avec succès' };
+    } catch (error) {
+      // ✅ Rollback en cas d'erreur
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
   }
 
   async select(id: number, comment: string, validatorId: number) {
@@ -1964,26 +1997,61 @@ export class BeneficiariesService {
     beneficiary.statusId = status.id;
     beneficiary.validatedAt = new Date();
     beneficiary.validatedByUserId = validatorId;
+    beneficiary.validatedComment = comment;
 
     await this.beneficiaryRepository.save(beneficiary);
     return { success: true, message: 'Candidat sélectionné avec succès' };
   }
 
+  // async reject(id: number, reason: string, validatorId: number) {
+  //   const beneficiary = await this.findById(id);
+
+  //   const status = await this.statusRepository.findOne({
+  //     where: { code: 'REJECTED', entityType: 'BENEFICIARY' },
+  //   });
+  //   if (!status) throw new NotFoundException('Statut REJECTED introuvable');
+
+  //   beneficiary.statusId = status.id;
+  //   beneficiary.rejectedAt = new Date();
+  //   beneficiary.rejectedByUserId = validatorId;
+  //   beneficiary.rejectionReason = reason;
+
+  //   await this.beneficiaryRepository.save(beneficiary);
+  //   return { success: true, message: 'Candidat rejeté' };
+  // }
   async reject(id: number, reason: string, validatorId: number) {
-    const beneficiary = await this.findById(id);
+    const beneficiary = await this.beneficiaryRepository.findOne({
+      where: { id },
+    });
+
+    if (!beneficiary) throw new NotFoundException('Bénéficiaire introuvable');
+
+    // ✅ Vérifier si déjà rejeté
+    if (beneficiary.status?.code === 'REJECTED') {
+      throw new BadRequestException('Ce candidat a déjà été rejeté');
+    }
+
+    // ✅ Vérifier si déjà sélectionné
+    // if (beneficiary.status?.code === 'SELECTED' || beneficiary.status?.code === 'VALIDATED') {
+    //   throw new BadRequestException('Ce candidat a déjà été sélectionné, impossible de le rejeter');
+    // }
 
     const status = await this.statusRepository.findOne({
       where: { code: 'REJECTED', entityType: 'BENEFICIARY' },
     });
-    if (!status) throw new NotFoundException('Statut REJECTED introuvable');
+
+    if (!status) {
+      throw new NotFoundException('Statut REJECTED introuvable');
+    }
 
     beneficiary.statusId = status.id;
     beneficiary.rejectedAt = new Date();
     beneficiary.rejectedByUserId = validatorId;
-    beneficiary.rejectionReason = reason;
+    beneficiary.rejectedComment = reason;
 
     await this.beneficiaryRepository.save(beneficiary);
-    return { success: true, message: 'Candidat rejeté' };
+
+    return { success: true, message: 'Candidat rejeté avec succès' };
   }
 
   /**

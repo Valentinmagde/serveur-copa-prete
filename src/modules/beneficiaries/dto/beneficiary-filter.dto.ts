@@ -31,7 +31,7 @@ export class BeneficiaryFilterDto {
 
   @ApiProperty({ required: false })
   @IsOptional()
-  @IsInt()
+  // @IsInt()
   statusId?: number;
 
   @ApiProperty({ required: false })

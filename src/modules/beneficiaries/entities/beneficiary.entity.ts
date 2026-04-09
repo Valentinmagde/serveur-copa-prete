@@ -292,6 +292,15 @@ export class Beneficiary {
   @Column({ name: 'application_code', unique: true, nullable: true })
   applicationCode: string;
 
+  @Column({ nullable: true })
+  comment: string;
+
+  @Column({ name: 'pre_selected_comment', nullable: true })
+  preSelectedComment: string;
+
+  @Column({ name: 'rejected_comment', nullable: true })
+  rejectedComment: string;
+
   @Column({
     name: 'application_submitted_at',
     type: 'timestamp',

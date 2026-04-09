@@ -58,41 +58,50 @@ async function seed() {
     const statusesExist = await queryRunner.manager.query(
       `SELECT COUNT(*) FROM statuses`,
     );
+
     if (statusesExist[0].count === '0') {
       await queryRunner.manager.query(`
-        INSERT INTO statuses (code, name, entity_type, display_order) VALUES
-        ('ACTIVE', 'Active', 'USER', 1),
-        ('INACTIVE', 'Inactive', 'USER', 2),
-        ('BLOCKED', 'Blocked', 'USER', 3),
-        ('PENDING_VALIDATION', 'Pending Validation', 'COMPANY', 1),
-        ('VALIDATED', 'Validated', 'COMPANY', 2),
-        ('REJECTED', 'Rejected', 'COMPANY', 3),
-        ('REGISTERED', 'Registered', 'BENEFICIARY', 1),
-        ('PRE_SELECTED', 'Pre-selected', 'BENEFICIARY', 2),
-        ('SELECTED', 'Selected', 'BENEFICIARY', 3),
-        ('REJECTED', 'Rejected', 'BENEFICIARY', 4),
-        ('DRAFT', 'Draft', 'BUSINESS_PLAN', 1),
-        ('SUBMITTED', 'Submitted', 'BUSINESS_PLAN', 2),
-        ('UNDER_EVALUATION', 'Under Evaluation', 'BUSINESS_PLAN', 3),
-        ('EVALUATED', 'Evaluated', 'BUSINESS_PLAN', 4),
-        ('SELECTED', 'Selected', 'BUSINESS_PLAN', 5),
-        ('REJECTED', 'Rejected', 'BUSINESS_PLAN', 6),
-        ('PENDING', 'Pending', 'SUBSCRIPTION', 1),
-        ('CONFIRMED', 'Confirmed', 'SUBSCRIPTION', 2),
-        ('CANCELLED', 'Cancelled', 'SUBSCRIPTION', 3),
-        ('RECEIVED', 'Received', 'COMPLAINT', 1),
-        ('IN_PROGRESS', 'In Progress', 'COMPLAINT', 2),
-        ('RESOLVED', 'Resolved', 'COMPLAINT', 3),
-        ('REJECTED', 'Rejected', 'COMPLAINT', 4),
-        ('SIGNED', 'Signed', 'SUBVENTION', 1),
-        ('ACTIVE', 'Active', 'SUBVENTION', 2),
-        ('COMPLETED', 'Completed', 'SUBVENTION', 3),
-        ('CANCELLED', 'Cancelled', 'SUBVENTION', 4),
-        ('PLANNED', 'Planned', 'TRAINING_SESSION', 1),
-        ('ONGOING', 'Ongoing', 'TRAINING_SESSION', 2),
-        ('COMPLETED', 'Completed', 'TRAINING_SESSION', 3),
-        ('CANCELLED', 'Cancelled', 'TRAINING_SESSION', 4);
-      `);
+    INSERT INTO statuses (code, name, name_fr, entity_type, display_order) VALUES
+    ('ACTIVE', 'Active', 'Actif', 'USER', 1),
+    ('INACTIVE', 'Inactive', 'Inactif', 'USER', 2),
+    ('BLOCKED', 'Blocked', 'Bloqué', 'USER', 3),
+
+    ('PENDING_VALIDATION', 'Pending Validation', 'En attente de validation', 'COMPANY', 1),
+    ('VALIDATED', 'Validated', 'Validé', 'COMPANY', 2),
+    ('REJECTED', 'Rejected', 'Rejeté', 'COMPANY', 3),
+
+    ('REGISTERED', 'Registered', 'Inscrit', 'BENEFICIARY', 1),
+    ('PRE_SELECTED', 'Pre-selected', 'Pré-sélectionné', 'BENEFICIARY', 2),
+    ('SELECTED', 'Selected', 'Sélectionné', 'BENEFICIARY', 3),
+    ('REJECTED', 'Rejected', 'Rejeté', 'BENEFICIARY', 4),
+
+    ('DRAFT', 'Draft', 'Brouillon', 'BUSINESS_PLAN', 1),
+    ('SUBMITTED', 'Submitted', 'Soumis', 'BUSINESS_PLAN', 2),
+    ('UNDER_EVALUATION', 'Under Evaluation', 'En cours d''évaluation', 'BUSINESS_PLAN', 3),
+    ('EVALUATED', 'Evaluated', 'Évalué', 'BUSINESS_PLAN', 4),
+    ('SELECTED', 'Selected', 'Sélectionné', 'BUSINESS_PLAN', 5),
+    ('REJECTED', 'Rejected', 'Rejeté', 'BUSINESS_PLAN', 6),
+
+    ('PENDING', 'Pending', 'En attente', 'SUBSCRIPTION', 1),
+    ('CONFIRMED', 'Confirmed', 'Confirmé', 'SUBSCRIPTION', 2),
+    ('CANCELLED', 'Cancelled', 'Annulé', 'SUBSCRIPTION', 3),
+
+    ('RECEIVED', 'Received', 'Reçu', 'COMPLAINT', 1),
+    ('IN_PROGRESS', 'In Progress', 'En cours', 'COMPLAINT', 2),
+    ('RESOLVED', 'Resolved', 'Résolu', 'COMPLAINT', 3),
+    ('REJECTED', 'Rejected', 'Rejeté', 'COMPLAINT', 4),
+
+    ('SIGNED', 'Signed', 'Signé', 'SUBVENTION', 1),
+    ('ACTIVE', 'Active', 'Actif', 'SUBVENTION', 2),
+    ('COMPLETED', 'Completed', 'Terminé', 'SUBVENTION', 3),
+    ('CANCELLED', 'Cancelled', 'Annulé', 'SUBVENTION', 4),
+
+    ('PLANNED', 'Planned', 'Planifié', 'TRAINING_SESSION', 1),
+    ('ONGOING', 'Ongoing', 'En cours', 'TRAINING_SESSION', 2),
+    ('COMPLETED', 'Completed', 'Terminé', 'TRAINING_SESSION', 3),
+    ('CANCELLED', 'Cancelled', 'Annulé', 'TRAINING_SESSION', 4);
+  `);
+
       console.log('Statuses seeded');
     }
 

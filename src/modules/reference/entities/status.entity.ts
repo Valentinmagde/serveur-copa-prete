@@ -17,6 +17,9 @@ export class Status {
   @Column()
   name: string;
 
+  @Column({ name: 'name_fr', nullable: true })
+  nameFr: string;
+
   @Column({ name: 'entity_type' })
   entityType: string;
 
