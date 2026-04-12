@@ -2024,6 +2024,16 @@ export class BeneficiariesService {
   //   return { success: true, message: 'Candidat rejeté' };
   // }
   async reject(id: number, reason: string, validatorId: number) {
+    const requestId = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+
+    this.logger.log({
+      message: `🔵 [${requestId}] Début du rejet candidat`,
+      beneficiaryId: id,
+      reason: reason?.substring(0, 100), // Tronqué pour les logs
+      validatorId,
+      timestamp: new Date().toISOString(),
+    });
+
     const beneficiary = await this.beneficiaryRepository.findOne({
       where: { id },
     });
@@ -2059,26 +2069,44 @@ export class BeneficiariesService {
   }
 
   async updateComment(beneficiaryId: number, dto: UpdateCommentDto) {
+    const startTime = Date.now();
+    const requestId = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+
+    this.logger.log({
+      message: `🔵 [${requestId}] Début mise à jour commentaire`,
+      beneficiaryId,
+      comment: dto.comment,
+      timestamp: new Date().toISOString(),
+    });
+
     const beneficiary = await this.beneficiaryRepository.findOne({
       where: { id: beneficiaryId },
       relations: ['status'],
     });
 
     if (!beneficiary) {
+      this.logger.warn({
+        message: `⚠️ [${requestId}] Candidature non trouvée`,
+        beneficiaryId,
+        queryTime: `${startTime}ms`,
+      });
       throw new NotFoundException(`Candidature #${beneficiaryId} introuvable`);
     }
 
     const statusCode = beneficiary.status?.code;
 
     let updateData: Partial<Beneficiary>;
+    let commentField: string;
 
     switch (statusCode) {
       case 'PRE_SELECTED':
         updateData = { preSelectedComment: dto.comment };
+        commentField = 'preSelectedComment';
         break;
 
       case 'REJECTED':
         updateData = { rejectedComment: dto.comment };
+        commentField = 'rejectedComment';
         break;
 
       default:
@@ -2088,6 +2116,14 @@ export class BeneficiariesService {
     }
 
     await this.beneficiaryRepository.update(beneficiaryId, updateData);
+
+    this.logger.log({
+      message: `✏️ [${requestId}] Commentaire mis à jour en base`,
+      beneficiaryId,
+      field: commentField,
+      oldValue: beneficiary[commentField as keyof Beneficiary],
+      newValue: dto.comment,
+    });
 
     return this.beneficiaryRepository.findOne({
       where: { id: beneficiaryId },
