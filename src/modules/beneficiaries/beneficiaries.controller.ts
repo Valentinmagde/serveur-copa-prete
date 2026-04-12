@@ -8,8 +8,10 @@ import {
   Query,
   UseGuards,
   Headers,
+  Patch,
+  ParseIntPipe,
 } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth, ApiHeader, ApiOperation } from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth, ApiHeader, ApiOperation, ApiParam } from '@nestjs/swagger';
 import { BeneficiariesService } from './beneficiaries.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -18,6 +20,7 @@ import { BeneficiaryFilterDto } from './dto/beneficiary-filter.dto';
 import { CreateBeneficiaryDto } from './dto/create-beneficiary.dto';
 import { UpdateBeneficiaryDto } from './dto/update-beneficiary.dto';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
+import { UpdateCommentDto } from './dto/update-comment.dto';
 
 @ApiTags('beneficiaries')
 @Controller('beneficiaries')
@@ -121,9 +124,20 @@ export class BeneficiariesController {
   @ApiOperation({ summary: 'Rejeter un bénéficiaire' })
   async reject(
     @Param('id') id: string,
-    @Body('reason') reason: string,
+    @Body('comment') comment: string,
     @CurrentUser() user,
   ) {
-    return this.beneficiariesService.reject(+id, reason, user.id);
+    return this.beneficiariesService.reject(+id, comment, user.id);
+  }
+
+  @Patch(':id/comment')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'COPA_MANAGER')
+  @ApiOperation({ summary: 'Modifier le commentaire de statut' })
+  @ApiParam({ name: 'id', type: Number })
+  async updateComment(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateCommentDto,
+  ) {
+    return this.beneficiariesService.updateComment(id, dto);
   }
 }

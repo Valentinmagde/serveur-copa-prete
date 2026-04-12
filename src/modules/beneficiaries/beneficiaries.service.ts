@@ -37,6 +37,7 @@ import {
   NotificationType,
 } from '../notifications/dto/create-notification.dto';
 import { Document } from '../documents/entities/document.entity';
+import { UpdateCommentDto } from './dto/update-comment.dto';
 
 @Injectable()
 export class BeneficiariesService {
@@ -625,6 +626,9 @@ export class BeneficiariesService {
       isProfileComplete: beneficiary.isProfileComplete,
       applicationCode: beneficiary.applicationCode,
       applicationSubmittedAt: beneficiary.applicationSubmittedAt,
+      preSelectedComment: beneficiary.preSelectedComment,
+      rejectedComment: beneficiary.rejectedComment,
+      // validatedComment: beneficiary.validatedComment,
 
       // Dates
       createdAt: beneficiary.createdAt,
@@ -2052,6 +2056,43 @@ export class BeneficiariesService {
     await this.beneficiaryRepository.save(beneficiary);
 
     return { success: true, message: 'Candidat rejeté avec succès' };
+  }
+
+  async updateComment(beneficiaryId: number, dto: UpdateCommentDto) {
+    const beneficiary = await this.beneficiaryRepository.findOne({
+      where: { id: beneficiaryId },
+      relations: ['status'],
+    });
+
+    if (!beneficiary) {
+      throw new NotFoundException(`Candidature #${beneficiaryId} introuvable`);
+    }
+
+    const statusCode = beneficiary.status?.code;
+
+    let updateData: Partial<Beneficiary>;
+
+    switch (statusCode) {
+      case 'PRE_SELECTED':
+        updateData = { preSelectedComment: dto.comment };
+        break;
+
+      case 'REJECTED':
+        updateData = { rejectedComment: dto.comment };
+        break;
+
+      default:
+        throw new BadRequestException(
+          `Aucun commentaire modifiable pour le statut "${statusCode}"`,
+        );
+    }
+
+    await this.beneficiaryRepository.update(beneficiaryId, updateData);
+
+    return this.beneficiaryRepository.findOne({
+      where: { id: beneficiaryId },
+      relations: ['status', 'user', 'company'],
+    });
   }
 
   /**
