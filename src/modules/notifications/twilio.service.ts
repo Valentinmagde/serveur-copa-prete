@@ -186,7 +186,8 @@ export class TwilioService {
     }
 
     try {
-      const from = this.configService.get<string>('TWILIO_PHONE_NUMBER');
+      const from = this.configService.get<string>('TWILIO_SENDER_ID')
+        || this.configService.get<string>('TWILIO_PHONE_NUMBER');
       const msg = await this.twilioClient.messages.create({ to: formatted, from, body: message });
       this.logger.log(`SMS sent to ${formatted}: ${msg.sid}`);
       return { messageId: msg.sid, provider: 'twilio', status: msg.status };
