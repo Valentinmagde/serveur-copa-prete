@@ -14,6 +14,7 @@ import { User } from '../users/entities/user.entity';
 import { UserRole } from '../users/entities/user-role.entity';
 import { UserConsent } from '../users/entities/user-consent.entity';
 import { Role } from '../reference/entities/role.entity';
+import { Beneficiary } from '../beneficiaries/entities/beneficiary.entity';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { Role } from '../reference/entities/role.entity';
       UserRole,
       UserConsent,
       Role,
+      Beneficiary,
     ]),
     // UsersModule,
     forwardRef(() => UsersModule),

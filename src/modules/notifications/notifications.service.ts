@@ -28,6 +28,7 @@ import {
   SmsTemplateType,
 } from './templates/email-templates.service';
 import { ConfigService } from '@nestjs/config';
+import { Beneficiary } from '../beneficiaries/entities/beneficiary.entity';
 // import { activitiesUrl } from 'twilio/lib/jwt/taskrouter/util';
 // import { User } from 'aws-sdk/clients/budgets';
 // import { Role } from '../reference/entities/role.entity';
@@ -39,6 +40,8 @@ export class NotificationsService {
   constructor(
     @InjectRepository(Notification)
     private notificationRepository: Repository<Notification>,
+    @InjectRepository(Beneficiary)
+    private beneficiaryRepository: Repository<Beneficiary>,
     private twilioService: TwilioService,
     @Inject(forwardRef(() => UsersService))
     private usersService: UsersService,
@@ -115,6 +118,7 @@ export class NotificationsService {
               year: new Date().getFullYear(),
             },
           });
+          console.log('deliveryResult', deliveryResult);
           break;
 
         // Les autres cas restent identiques
@@ -144,7 +148,7 @@ export class NotificationsService {
       }
 
       // Mise à jour du statut (inchangé)
-      notification.isSent = true;
+      notification.isSent = deliveryResult?.messageId ? true : false;
       notification.sentAt = new Date();
       notification.context = {
         ...notification.context,
@@ -870,6 +874,732 @@ export class NotificationsService {
   }
 
   /**
+   * Envoie un email de présélection à un bénéficiaire
+   */
+  async sendPreselectedEmail(beneficiaryId: number): Promise<any> {
+    this.logger.log(
+      `[PRESELECTION] Préparation email pour bénéficiaire ${beneficiaryId}`,
+    );
+
+    try {
+      // 1. Récupérer le bénéficiaire avec ses relations
+      const beneficiary = await this.beneficiaryRepository.findOne({
+        where: { id: beneficiaryId },
+        relations: ['user', 'status', 'company'],
+      });
+
+      if (!beneficiary) {
+        throw new NotFoundException(
+          `Bénéficiaire #${beneficiaryId} non trouvé`,
+        );
+      }
+
+      if (!beneficiary.user?.email) {
+        this.logger.warn(
+          `⚠️ [PRESELECTION] Pas d'email pour bénéficiaire ${beneficiaryId}`,
+        );
+        return { success: false, error: 'Aucun email disponible' };
+      }
+
+      // 2. Préparer les données pour le template
+      const templateData = {
+        firstName: beneficiary.user.firstName || '',
+        lastName: beneficiary.user.lastName || '',
+        fullName:
+          `${beneficiary.user.firstName || ''} ${beneficiary.user.lastName || ''}`.trim(),
+        applicationCode: beneficiary.applicationCode || `BEN-${beneficiaryId}`,
+        companyName: beneficiary.company?.companyName || 'Non renseigné',
+        comment: beneficiary.preSelectedComment || '',
+        dashboardUrl: `${this.configService.get('APP_URL')}/mpme/candidatures/${beneficiaryId}`,
+        annee: new Date().getFullYear().toString(),
+      };
+
+      // 3. Utiliser le template d'email
+      const template = this.emailTemplates.getPreselectedEmail(templateData);
+      this.logger.log(`Template généré: ${JSON.stringify(template)}`);
+
+      // 4. Envoyer l'email via Twilio
+      const result = await this.twilioService.sendEmail({
+        to: beneficiary.user.email,
+        subject: template.subject,
+        html: template.html,
+        text: template.text,
+      });
+
+      this.logger.log(`
+        messageId: ${result.messageId},
+        provider: ${result.provider}
+      `);
+
+      // 5. Sauvegarder la notification en base
+      const notification = this.notificationRepository.create({
+        recipientUserId: beneficiary.user.id,
+        channel: 'EMAIL',
+        notificationType: 'PRESELECTION',
+        title: template.subject,
+        content: template.html,
+        context: {
+          emailType: 'preselection',
+          beneficiaryId,
+          comment: beneficiary.preSelectedComment || '',
+          messageId: result.messageId,
+          provider: result.provider,
+          sentBy: 'AUTOMATIC',
+          triggerAction: 'PRESELECTION',
+        },
+        isSent: result?.messageId ? true : false,
+        sentAt: new Date(),
+      });
+
+      await this.notificationRepository.save(notification);
+
+      this.logger.log(
+        `✅ [PRESELECTION] Email envoyé à ${beneficiary.user.email}`,
+      );
+
+      return {
+        success: true,
+        messageId: result.messageId,
+        notificationId: notification.id,
+        recipient: beneficiary.user.email,
+      };
+    } catch (error: any) {
+      this.logger.error(
+        `❌ [PRESELECTION] Erreur: ${error.message}`,
+        error.stack,
+      );
+
+      // Sauvegarder l'échec
+      try {
+        const beneficiary = await this.beneficiaryRepository.findOne({
+          where: { id: beneficiaryId },
+          relations: ['user'],
+        });
+
+        if (beneficiary?.user) {
+          const failedNotification = this.notificationRepository.create({
+            recipientUserId: beneficiary.user.id,
+            channel: 'EMAIL',
+            notificationType: 'PRESELECTION',
+            title: 'Présélection - Échec envoi',
+            content: error.message,
+            context: {
+              emailType: 'preselection',
+              beneficiaryId,
+              comment: beneficiary.preSelectedComment || '',
+              error: error.message,
+              sentBy: 'AUTOMATIC',
+            },
+            isSent: false,
+          });
+          await this.notificationRepository.save(failedNotification);
+        }
+      } catch (saveError) {
+        this.logger.error(`Impossible de sauvegarder l'échec:`, saveError);
+      }
+
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Envoie un email de rejet à un bénéficiaire
+   */
+  async sendRejectedEmail(beneficiaryId: number): Promise<any> {
+    this.logger.log(
+      `🔵 [REJECTION] Préparation email pour bénéficiaire ${beneficiaryId}`,
+    );
+
+    try {
+      // 1. Récupérer le bénéficiaire
+      const beneficiary = await this.beneficiaryRepository.findOne({
+        where: { id: beneficiaryId },
+        relations: ['user', 'status', 'company'],
+      });
+
+      if (!beneficiary) {
+        throw new NotFoundException(
+          `Bénéficiaire #${beneficiaryId} non trouvé`,
+        );
+      }
+
+      if (!beneficiary.user?.email) {
+        this.logger.warn(
+          `⚠️ [REJECTION] Pas d'email pour bénéficiaire ${beneficiaryId}`,
+        );
+        return { success: false, error: 'Aucun email disponible' };
+      }
+
+      // 2. Préparer les données pour le template
+      const templateData = {
+        firstName: beneficiary.user.firstName || '',
+        lastName: beneficiary.user.lastName || '',
+        fullName:
+          `${beneficiary.user.firstName || ''} ${beneficiary.user.lastName || ''}`.trim(),
+        applicationCode: beneficiary.applicationCode || `BEN-${beneficiaryId}`,
+        companyName: beneficiary.company?.companyName || 'Non renseigné',
+        reason: beneficiary.rejectedComment || '',
+        dashboardUrl: `${this.configService.get('APP_URL')}/mpme/candidatures/${beneficiaryId}`,
+        annee: new Date().getFullYear().toString(),
+      };
+
+      // 3. Utiliser le template d'email
+      const template = this.emailTemplates.getRejectedEmail(templateData);
+
+      // 4. Envoyer l'email
+      const result = await this.twilioService.sendEmail({
+        to: beneficiary.user.email,
+        subject: template.subject,
+        html: template.html,
+        text: template.text,
+      });
+
+      // 5. Sauvegarder la notification
+      const notification = this.notificationRepository.create({
+        recipientUserId: beneficiary.user.id,
+        channel: 'EMAIL',
+        notificationType: 'REJECTION',
+        title: template.subject,
+        content: template.html,
+        context: {
+          emailType: 'rejection',
+          beneficiaryId,
+          reason: beneficiary.rejectedComment || '',
+          messageId: result.messageId,
+          provider: result.provider,
+          sentBy: 'AUTOMATIC',
+          triggerAction: 'REJECTION',
+        },
+        isSent: result?.messageId ? true : false,
+        sentAt: new Date(),
+      });
+
+      await this.notificationRepository.save(notification);
+
+      this.logger.log(
+        `✅ [REJECTION] Email envoyé à ${beneficiary.user.email}`,
+      );
+
+      return {
+        success: true,
+        messageId: result.messageId,
+        notificationId: notification.id,
+        recipient: beneficiary.user.email,
+      };
+    } catch (error: any) {
+      this.logger.error(`❌ [REJECTION] Erreur: ${error.message}`, error.stack);
+      return { success: false, error: error.message };
+    }
+  }
+
+  async sendBatchAutoEmails(
+    type: 'PRESELECTION' | 'REJECTION' | 'SELECTION',
+    beneficiaryIds: number[],
+  ): Promise<{ total: number; succeeded: number; failed: number; details: any[] }> {
+    this.logger.log(`📧 Envoi groupé automatique: ${type} pour ${beneficiaryIds.length} bénéficiaires`);
+
+    const results = {
+      total: beneficiaryIds.length,
+      succeeded: 0,
+      failed: 0,
+      details: [] as any[],
+    };
+
+    for (const id of beneficiaryIds) {
+      try {
+        let result;
+        
+        switch (type) {
+          case 'PRESELECTION':
+            result = await this.sendPreselectedEmail(id);
+            break;
+          case 'REJECTION':
+            result = await this.sendRejectedEmail(id);
+            break;
+          case 'SELECTION':
+            result = await this.sendSelectionEmail(id);
+            break;
+          default:
+            throw new Error(`Type d'email inconnu: ${type}`);
+        }
+
+        if (result?.success) {
+          results.succeeded++;
+          results.details.push({ beneficiaryId: id, status: 'success', result });
+        } else {
+          results.failed++;
+          results.details.push({ beneficiaryId: id, status: 'failed', error: result?.error || 'Erreur inconnue' });
+        }
+
+        // Petit délai pour éviter la surcharge
+        await new Promise(resolve => setTimeout(resolve, 200));
+
+      } catch (error) {
+        results.failed++;
+        results.details.push({ beneficiaryId: id, status: 'failed', error: error.message });
+        this.logger.error(`Erreur envoi à ${id}: ${error.message}`);
+      }
+    }
+
+    this.logger.log(`✅ Envoi groupé terminé: ${results.succeeded}/${results.total} succès`);
+
+    return results;
+  }
+
+  // Méthode pour l'envoi d'email de sélection (à créer si nécessaire)
+  async sendSelectionEmail(beneficiaryId: number): Promise<any> {
+    this.logger.log(`🔵 [SELECTION] Préparation email pour bénéficiaire ${beneficiaryId}`);
+
+    try {
+      const beneficiary = await this.beneficiaryRepository.findOne({
+        where: { id: beneficiaryId },
+        relations: ['user', 'status', 'company'],
+      });
+
+      if (!beneficiary || !beneficiary.user?.email) {
+        return { success: false, error: 'Bénéficiaire ou email non trouvé' };
+      }
+
+      const templateData = {
+        firstName: beneficiary.user.firstName || '',
+        lastName: beneficiary.user.lastName || '',
+        fullName: `${beneficiary.user.firstName || ''} ${beneficiary.user.lastName || ''}`.trim(),
+        applicationCode: beneficiary.applicationCode || `BEN-${beneficiaryId}`,
+        companyName: beneficiary.company?.companyName || 'Non renseigné',
+        dashboardUrl: `${this.configService.get('APP_URL')}/mpme/candidatures/${beneficiaryId}`,
+        annee: new Date().getFullYear().toString(),
+      };
+
+      const template = this.emailTemplates.getSelectedEmail(templateData);
+
+      const result = await this.twilioService.sendEmail({
+        to: beneficiary.user.email,
+        subject: template.subject,
+        html: template.html,
+        text: template.text,
+      });
+
+      // Sauvegarder la notification
+      const notification = this.notificationRepository.create({
+        recipientUserId: beneficiary.user.id,
+        channel: 'EMAIL',
+        notificationType: 'SELECTION',
+        title: template.subject,
+        content: template.html,
+        context: {
+          emailType: 'selection',
+          beneficiaryId,
+          messageId: result.messageId,
+          sentBy: 'AUTOMATIC',
+          triggerAction: 'SELECTION',
+        },
+        isSent: result?.messageId ? true : false,
+        sentAt: new Date(),
+      });
+
+      await this.notificationRepository.save(notification);
+
+      return { success: true, messageId: result.messageId, recipient: beneficiary.user.email };
+
+    } catch (error) {
+      this.logger.error(`❌ [SELECTION] Erreur: ${error.message}`);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Envoi groupé d'emails (pour batch)
+   */
+  async sendBatchEmails(dto: {
+    type: 'PRESELECTION' | 'REJECTION';
+    beneficiaryIds: number[];
+    message: string;
+  }): Promise<{
+    total: number;
+    succeeded: number;
+    failed: number;
+    details: any[];
+  }> {
+    const results = {
+      total: dto.beneficiaryIds.length,
+      succeeded: 0,
+      failed: 0,
+      details: [] as any[],
+    };
+
+    for (const id of dto.beneficiaryIds) {
+      try {
+        let result;
+        if (dto.type === 'PRESELECTION') {
+          result = await this.sendPreselectedEmail(id);
+        } else {
+          result = await this.sendRejectedEmail(id);
+        }
+
+        if (result.success) {
+          results.succeeded++;
+          results.details.push({
+            beneficiaryId: id,
+            status: 'success',
+            result,
+          });
+        } else {
+          results.failed++;
+          results.details.push({
+            beneficiaryId: id,
+            status: 'failed',
+            error: result.error,
+          });
+        }
+
+        // Petit délai pour éviter la surcharge
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      } catch (error: any) {
+        results.failed++;
+        results.details.push({
+          beneficiaryId: id,
+          status: 'failed',
+          error: error.message,
+        });
+      }
+    }
+
+    return results;
+  }
+
+  // notifications.service.ts
+
+/**
+ * Envoi d'email manuel (individuel ou groupé)
+ */
+async sendManualEmail(dto: {
+  type: 'INDIVIDUAL' | 'BULK';
+  beneficiaryIds: number[];
+  subject: string;
+  message: string;
+  useAutoTemplate?: boolean;
+}): Promise<{ total: number; succeeded: number; failed: number; details: any[] }> {
+  this.logger.log(`📧 Envoi manuel: ${dto.type} pour ${dto.beneficiaryIds.length} bénéficiaires`);
+  this.logger.log(`  - Sujet: ${dto.subject}`);
+  this.logger.log(`  - Destinataires: ${dto.beneficiaryIds.join(', ')}`);
+
+  const results = {
+    total: dto.beneficiaryIds.length,
+    succeeded: 0,
+    failed: 0,
+    details: [] as any[],
+  };
+
+  for (const id of dto.beneficiaryIds) {
+    try {
+      // Récupérer le bénéficiaire
+      const beneficiary = await this.beneficiaryRepository.findOne({
+        where: { id },
+        relations: ['user', 'status', 'company'],
+      });
+
+      if (!beneficiary || !beneficiary.user?.email) {
+        this.logger.warn(`Bénéficiaire ${id} non trouvé ou sans email`);
+        results.failed++;
+        results.details.push({ 
+          beneficiaryId: id, 
+          status: 'failed', 
+          error: 'Bénéficiaire ou email non trouvé' 
+        });
+        continue;
+      }
+
+      const personalizedMessage = this.replaceVariables(dto.message ?? '', beneficiary);
+      const personalizedSubject = this.replaceVariables(dto.subject ?? '', beneficiary);
+
+      // Envoyer l'email
+      const result = await this.twilioService.sendEmail({
+        to: beneficiary.user.email,
+        subject: personalizedSubject,
+        html: this.emailTemplates.getManualEmailMessage(personalizedMessage),
+        text: personalizedMessage,
+      });
+
+      // Sauvegarder la notification
+      const notification = this.notificationRepository.create({
+        recipientUserId: beneficiary.user.id,
+        channel: 'EMAIL',
+        notificationType: dto.type === 'BULK' ? 'BULK' : 'INDIVIDUAL',
+        title: personalizedSubject,
+        content: personalizedMessage,
+        context: {
+          emailType: 'manual',
+          beneficiaryId: id,
+          messageId: result.messageId,
+          sentBy: 'MANUAL',
+          originalSubject: dto.subject,
+          originalMessage: dto.message,
+        },
+        isSent: result?.messageId ? true : false,
+        sentAt: new Date(),
+      });
+
+      await this.notificationRepository.save(notification);
+
+      results.succeeded++;
+      results.details.push({ 
+        beneficiaryId: id, 
+        status: 'success', 
+        email: beneficiary.user.email 
+      });
+
+      this.logger.log(`✅ Email envoyé à ${beneficiary.user.email} (${id})`);
+
+      // Petit délai pour éviter la surcharge
+      await new Promise(resolve => setTimeout(resolve, 200));
+
+    } catch (error) {
+      this.logger.error(`❌ Erreur envoi à ${id}: ${error.message}`);
+      results.failed++;
+      results.details.push({ 
+        beneficiaryId: id, 
+        status: 'failed', 
+        error: error.message 
+      });
+    }
+  }
+
+  this.logger.log(`✅ Envoi terminé: ${results.succeeded}/${results.total} succès`);
+
+  return results;
+}
+
+/**
+ * Envoi de SMS manuel (individuel ou groupé)
+ */
+async sendManualSms(dto: {
+  beneficiaryIds: number[];
+  message: string;
+}): Promise<{ total: number; succeeded: number; failed: number; details: any[] }> {
+  this.logger.log(`📱 Envoi SMS manuel pour ${dto.beneficiaryIds.length} bénéficiaires`);
+
+  const results = { total: dto.beneficiaryIds.length, succeeded: 0, failed: 0, details: [] as any[] };
+
+  for (const id of dto.beneficiaryIds) {
+    try {
+      const beneficiary = await this.beneficiaryRepository.findOne({
+        where: { id },
+        relations: ['user'],
+      });
+
+      if (!beneficiary?.user?.phoneNumber) {
+        results.failed++;
+        results.details.push({ beneficiaryId: id, status: 'failed', error: 'Numéro de téléphone manquant' });
+        continue;
+      }
+
+      const personalizedMessage = this.replaceVariables(dto.message, beneficiary);
+      const result = await this.twilioService.sendSms(beneficiary.user.phoneNumber, personalizedMessage);
+
+      if (result.error && result.provider === 'validation') {
+        results.failed++;
+        results.details.push({ beneficiaryId: id, status: 'failed', error: result.error, phone: beneficiary.user.phoneNumber });
+        continue;
+      }
+
+      const notification = this.notificationRepository.create({
+        recipientUserId: beneficiary.user.id,
+        channel: 'SMS',
+        notificationType: 'INDIVIDUAL',
+        title: 'SMS manuel',
+        content: personalizedMessage,
+        context: { smsType: 'manual', beneficiaryId: id, messageId: result.messageId, sentBy: 'MANUAL' },
+        isSent: !result.simulated && !result.error,
+        sentAt: new Date(),
+      });
+
+      await this.notificationRepository.save(notification);
+
+      results.succeeded++;
+      results.details.push({ beneficiaryId: id, status: 'success', phone: beneficiary.user.phoneNumber });
+
+      await new Promise(resolve => setTimeout(resolve, 200));
+    } catch (error: any) {
+      results.failed++;
+      results.details.push({ beneficiaryId: id, status: 'failed', error: error.message });
+    }
+  }
+
+  this.logger.log(`✅ SMS terminés: ${results.succeeded}/${results.total} succès`);
+  return results;
+}
+
+/**
+ * Remplace les variables dans le texte
+ */
+private replaceVariables(text: string | undefined | null, beneficiary: any): string {
+  if (!text) return '';
+  const firstName = beneficiary.user?.firstName || '';
+  const lastName = beneficiary.user?.lastName || '';
+
+  return text
+    .replace(/{{prenom}}/g, firstName)
+    .replace(/{{nom}}/g, lastName)
+    .replace(/{{fullName}}/g, `${firstName} ${lastName}`.trim())
+    .replace(/{{code_candidature}}/g, beneficiary.applicationCode || '')
+    .replace(/{{entreprise}}/g, beneficiary.company?.companyName || '')
+    .replace(/{{email}}/g, beneficiary.user?.email || '')
+    .replace(/{{telephone}}/g, beneficiary.user?.phoneNumber || '')
+    .replace(/{{statut}}/g, beneficiary.status?.code || '');
+}
+
+  async getPreselectRejectHistory(
+    filter: NotificationFilterDto,
+  ): Promise<PaginatedResult<Notification>> {
+    const { page = 1, limit = 20, search, fromDate, toDate, type, isSent, channel } = filter;
+    const { skip, take } = PaginationUtil.getSkipTake(page, limit);
+
+    const queryBuilder = this.notificationRepository
+      .createQueryBuilder('notification')
+      .leftJoinAndSelect('notification.recipient', 'recipient')
+      .where('1=1');
+
+    if (channel) {
+      queryBuilder.andWhere('notification.channel = :channel', { channel });
+    }
+
+    // Filtre par date
+    if (fromDate && toDate) {
+      queryBuilder.andWhere(
+        'notification.createdAt BETWEEN :fromDate AND :toDate',
+        {
+          fromDate: new Date(fromDate),
+          toDate: new Date(toDate),
+        },
+      );
+    }
+
+    // Recherche textuelle - CORRIGÉ : notification.content pas n.content
+    if (search) {
+      queryBuilder.andWhere(
+        '(notification.title ILIKE :search OR notification.content ILIKE :search OR recipient.email ILIKE :search OR recipient.firstName ILIKE :search OR recipient.lastName ILIKE :search)',
+        { search: `%${search}%` },
+      );
+    }
+
+    if (type) {
+      queryBuilder.andWhere('notification.notificationType = :type', { type });
+    }
+
+    if (isSent !== undefined) {
+      queryBuilder.andWhere('notification.isSent = :isSent', { isSent });
+    }
+
+    // Tri par date décroissante - utilisez createdAt
+    queryBuilder.orderBy('notification.createdAt', 'DESC');
+
+    // Pagination
+    queryBuilder.skip(skip).take(take);
+
+    const [notifications, total] = await queryBuilder.getManyAndCount();
+
+    return PaginationUtil.paginate(notifications, total, { page, limit });
+  }
+
+  async getPreselectRejectHistoryWithDetails(
+    filter: NotificationFilterDto,
+  ): Promise<any> {
+    const { page = 1, limit = 20, fromDate, toDate } = filter;
+    const { skip, take } = PaginationUtil.getSkipTake(page, limit);
+
+    // ✅ CORRIGÉ : Pas besoin de addSelect, leftJoinAndSelect suffit
+    const queryBuilder = this.notificationRepository
+      .createQueryBuilder('notification')
+      .leftJoinAndSelect('notification.recipient', 'recipient')
+      .where('notification.notificationType IN (:...types)', {
+        types: ['PRESELECTION', 'REJECTION', 'PRESELECTED', 'REJECTED'],
+      })
+      .andWhere('notification.channel = :channel', { channel: 'EMAIL' });
+
+    if (fromDate && toDate) {
+      queryBuilder.andWhere(
+        'notification.createdAt BETWEEN :fromDate AND :toDate',
+        {
+          fromDate: new Date(fromDate),
+          toDate: new Date(toDate),
+        },
+      );
+    }
+
+    queryBuilder
+      .orderBy('notification.createdAt', 'DESC')
+      .skip(skip)
+      .take(take);
+
+    const [notifications, total] = await queryBuilder.getManyAndCount();
+
+    // Transformer les données pour le frontend
+    const formattedNotifications = notifications.map((n) => ({
+      id: n.id,
+      recipientName: n.recipient
+        ? `${n.recipient.firstName || ''} ${n.recipient.lastName || ''}`.trim()
+        : 'N/A',
+      recipientEmail: n.recipient?.email || 'N/A',
+      type: n.notificationType,
+      status: n.isSent ? 'SENT' : 'FAILED',
+      subject: n.title,
+      message: n.context?.reason || n.context?.comment || null,
+      sentAt: n.sentAt || n.createdAt,
+      error: n.context?.error || null,
+      sentBy: n.context?.sentBy || 'SYSTEM',
+      sentByType: n.context?.sentByType || 'AUTOMATIC',
+      triggerAction: n.context?.triggerAction,
+    }));
+
+    return {
+      data: formattedNotifications,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  async getCandidatesForNotification(
+    status?: string,
+    search?: string,
+  ): Promise<any[]> {
+    const queryBuilder = this.beneficiaryRepository
+      .createQueryBuilder('beneficiary')
+      .leftJoinAndSelect('beneficiary.user', 'user')
+      .leftJoinAndSelect('beneficiary.status', 'status')
+      .where('user.email IS NOT NULL');
+
+    // Filtre par statut
+    if (status && status !== 'ALL') {
+      queryBuilder.andWhere('status.code = :status', { status });
+    }
+
+    // Recherche textuelle
+    if (search) {
+      queryBuilder.andWhere(
+        '(user.firstName ILIKE :search OR user.lastName ILIKE :search OR user.email ILIKE :search OR beneficiary.applicationCode ILIKE :search)',
+        { search: `%${search}%` },
+      );
+    }
+
+    const beneficiaries = await queryBuilder.getMany();
+
+    return beneficiaries.map((b) => ({
+      id: b.id,
+      name: b.user
+        ? `${b.user.firstName || ''} ${b.user.lastName || ''}`.trim()
+        : 'N/A',
+      email: b.user?.email || '',
+      applicationCode: b.applicationCode || `BEN-${b.id}`,
+      status: b.status?.code || 'UNKNOWN',
+      rejectionReason: b.rejectedComment || null,
+    }));
+  }
+
+  /**
    * Récupère toutes les notifications avec filtres
    */
   async findAll(
@@ -1209,7 +1939,7 @@ export class NotificationsService {
   /**
    * Renvoie une notification
    */
-  async resend(id: number): Promise<Notification> {
+  async resendNotification(id: number): Promise<Notification> {
     const notification = await this.findOne(id);
     const user = await this.usersService.findById(
       notification.recipientUserId || 0,

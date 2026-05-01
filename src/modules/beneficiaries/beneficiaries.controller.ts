@@ -130,6 +130,13 @@ export class BeneficiariesController {
     return this.beneficiariesService.reject(+id, comment, user.id);
   }
 
+  @Patch(':id/submit-correction')
+  @ApiOperation({ summary: 'Soumettre la correction de documents' })
+  @ApiParam({ name: 'id', type: Number })
+  async submitDocumentCorrection(@Param('id', ParseIntPipe) id: number) {
+    return this.beneficiariesService.submitDocumentCorrection(id);
+  }
+
   @Patch(':id/comment')
   @Roles('SUPER_ADMIN', 'ADMIN', 'COPA_MANAGER')
   @ApiOperation({ summary: 'Modifier le commentaire de statut' })

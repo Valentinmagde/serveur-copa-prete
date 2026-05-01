@@ -48,52 +48,6 @@ export class DashboardService {
     /**
      * Récupère les statistiques des cartes
      */
-    // async getStatsCards(): Promise<StatsCardsResponseDto> {
-    //     const currentDate = new Date();
-    //     const previousMonthDate = new Date();
-    //     previousMonthDate.setMonth(previousMonthDate.getMonth() - 1);
-
-    //     // Période actuelle
-    //     const [totalMpme, totalCandidatures, totalBusinessPlans, totalWomen] =
-    //         await Promise.all([
-    //             this.beneficiaryRepository.count(),
-    //             this.beneficiaryRepository.count({
-    //                 where: { isProfileComplete: true },
-    //             }),
-    //             this.businessPlanRepository.count({
-    //                 where: { submittedAt: MoreThan(new Date(0)) },
-    //             }),
-    //             this.beneficiaryRepository.count({
-    //                 where: { isProfileComplete: true },
-    //                 relations: ['user', 'user.gender'],
-    //             }).then(async (count) => {
-    //                 // Filtrage manuel pour le genre (ou utiliser une requête plus complexe)
-    //                 const beneficiaries = await this.beneficiaryRepository.find({
-    //                     where: { isProfileComplete: true },
-    //                     relations: ['user', 'user.gender'],
-    //                 });
-    //                 // console.log("beneficaires", beneficiaries[0].user);
-    //                 return beneficiaries.filter((b) => b?.user?.gender?.code === "F").length;
-    //             }),
-    //         ]);
-
-    //     // Période précédente (simulée - à adapter selon vos besoins)
-    //     const previousPeriod = {
-    //         totalMpme: Math.floor(totalMpme * 0.85),
-    //         totalCandidatures: Math.floor(totalCandidatures * 0.78),
-    //         totalBusinessPlans: Math.floor(totalBusinessPlans * 0.82),
-    //         totalWomen: Math.floor(totalWomen * 0.88),
-    //     };
-
-    //     return {
-    //         totalMpme,
-    //         totalCandidatures,
-    //         totalBusinessPlans,
-    //         totalWomen,
-    //         previousPeriod,
-    //     };
-    // }
-
     async getStatsCards(): Promise<StatsCardsResponseDto> {
         const previousMonthDate = new Date();
         previousMonthDate.setMonth(previousMonthDate.getMonth() - 1);
@@ -105,7 +59,11 @@ export class DashboardService {
             totalWomen,
             totalRegistratedWomen,
             totalSubventionsAccordees,
-            totalSubventionsDecessees
+            totalSubventionsDecessees,
+            totalRejected,
+            totalPreselected,
+            totalSelected,
+            totalRegistered,
         ] = await Promise.all([
             // 1. Total MPME inscrits
             this.beneficiaryRepository.count(),
@@ -125,16 +83,14 @@ export class DashboardService {
                 where: { isProfileComplete: true },
                 relations: ['user', 'user.gender'],
             }).then(async (count) => {
-                // Filtrage manuel pour le genre (ou utiliser une requête plus complexe)
                 const beneficiaries = await this.beneficiaryRepository.find({
                     where: { isProfileComplete: true },
                     relations: ['user', 'user.gender'],
                 });
-                // console.log("beneficaires", beneficiaries[0].user);
                 return beneficiaries.filter((b) => b?.user?.gender?.code === "F").length;
             }),
 
-            // 4. Nombre de femmes inscrites
+            // 5. Nombre de femmes inscrites
             this.beneficiaryRepository
                 .createQueryBuilder('beneficiary')
                 .innerJoin('beneficiary.user', 'user')
@@ -142,71 +98,148 @@ export class DashboardService {
                 .where('gender.code = :genderCode', { genderCode: 'F' })
                 .getCount(),
 
-            // 5. Subventions accordées (nombre) - basé sur approvalDate
+            // 6. Subventions accordées (nombre)
             this.subventionRepository.count({
                 where: { approvalDate: Not(IsNull()) }
             }),
 
-            // 6. Montant total des subventions décaissées - basé sur signatureDate ou approvalDate
+            // 7. Montant total des subventions décaissées
             this.subventionRepository
                 .createQueryBuilder('subvention')
                 .select('SUM(subvention.awardedAmount)', 'total')
                 .where('subvention.signatureDate IS NOT NULL')
                 .getRawOne()
                 .then(result => Number(result?.total || 0)),
+
+            // 8. ✅ Nombre de candidatures rejetées
+            this.beneficiaryRepository
+                .createQueryBuilder('beneficiary')
+                .innerJoin('beneficiary.status', 'status')
+                .where('beneficiary.isProfileComplete = :isComplete', { isComplete: true })
+                .andWhere('status.code = :statusCode', { statusCode: 'REJECTED' })
+                .getCount(),
+
+            // 9. ✅ Nombre de candidatures présélectionnées
+            this.beneficiaryRepository
+                .createQueryBuilder('beneficiary')
+                .innerJoin('beneficiary.status', 'status')
+                .where('beneficiary.isProfileComplete = :isComplete', { isComplete: true })
+                .andWhere('status.code = :statusCode', { statusCode: 'PRE_SELECTED' })
+                .getCount(),
+
+            // 10. ✅ Nombre de candidatures sélectionnées
+            this.beneficiaryRepository
+                .createQueryBuilder('beneficiary')
+                .innerJoin('beneficiary.status', 'status')
+                .where('beneficiary.isProfileComplete = :isComplete', { isComplete: true })
+                .andWhere('status.code = :statusCode', { statusCode: 'SELECTED' })
+                .getCount(),
+
+            // 11. Nombre de candidatures enregistrées
+            this.beneficiaryRepository
+                .createQueryBuilder('beneficiary')
+                .innerJoin('beneficiary.status', 'status')
+                .where('beneficiary.isProfileComplete = :isComplete', { isComplete: true })
+                .andWhere('status.code = :statusCode', { statusCode: 'REGISTERED' })
+                .getCount(),
         ]);
 
         // Période précédente
-        const [previousTotalMpme, previousTotalCandidatures, previousTotalBusinessPlans,
-            previousTotalWomen, previousTotalRegistratedWomen, previousSubventionsAccordees, previousSubventionsDecessees] = await Promise.all([
-                this.beneficiaryRepository.count({
-                    where: { createdAt: LessThan(previousMonthDate) }
-                }),
-                this.beneficiaryRepository.count({
-                    where: {
-                        isProfileComplete: true,
-                        createdAt: LessThan(previousMonthDate)
-                    },
-                }),
-                this.businessPlanRepository.count({
-                    where: {
-                        submittedAt: LessThan(previousMonthDate)
-                    },
-                }),
-                this.beneficiaryRepository.count({
-                    where: {
-                        isProfileComplete: true,
-                        updatedAt: LessThan(previousMonthDate)
-                    },
+        const [
+            previousTotalMpme,
+            previousTotalCandidatures,
+            previousTotalBusinessPlans,
+            previousTotalWomen,
+            previousTotalRegistratedWomen,
+            previousSubventionsAccordees,
+            previousSubventionsDecessees,
+            previousTotalRejected,
+            previousTotalPreselected,
+            previousTotalSelected,
+            previousTotalRegistered,
+        ] = await Promise.all([
+            this.beneficiaryRepository.count({
+                where: { createdAt: LessThan(previousMonthDate) }
+            }),
+            this.beneficiaryRepository.count({
+                where: {
+                    isProfileComplete: true,
+                    createdAt: LessThan(previousMonthDate)
+                },
+            }),
+            this.businessPlanRepository.count({
+                where: {
+                    submittedAt: LessThan(previousMonthDate)
+                },
+            }),
+            this.beneficiaryRepository.count({
+                where: {
+                    isProfileComplete: true,
+                    updatedAt: LessThan(previousMonthDate)
+                },
+                relations: ['user', 'user.gender'],
+            }).then(async (count) => {
+                const beneficiaries = await this.beneficiaryRepository.find({
+                    where: { isProfileComplete: true },
                     relations: ['user', 'user.gender'],
-                }).then(async (count) => {
-                    // Filtrage manuel pour le genre (ou utiliser une requête plus complexe)
-                    const beneficiaries = await this.beneficiaryRepository.find({
-                        where: { isProfileComplete: true },
-                        relations: ['user', 'user.gender'],
-                    });
-                    // console.log("beneficaires", beneficiaries[0].user);
-                    return beneficiaries.filter((b) => b?.user?.gender?.code === "F").length;
-                }),
-                this.beneficiaryRepository
-                    .createQueryBuilder('beneficiary')
-                    .innerJoin('beneficiary.user', 'user')
-                    .innerJoin('user.gender', 'gender')
-                    .where('gender.code = :genderCode', { genderCode: 'F' })
-                    .andWhere('beneficiary.createdAt < :previousMonthDate', { previousMonthDate })
-                    .getCount(),
-                this.subventionRepository.count({
-                    where: {
-                        approvalDate: LessThan(previousMonthDate)
-                    },
-                }),
-                this.subventionRepository
-                    .createQueryBuilder('subvention')
-                    .select('SUM(subvention.awardedAmount)', 'total')
-                    .where('subvention.signatureDate < :previousMonthDate', { previousMonthDate })
-                    .getRawOne()
-                    .then(result => Number(result?.total || 0)),
-            ]);
+                });
+                return beneficiaries.filter((b) => b?.user?.gender?.code === "F").length;
+            }),
+            this.beneficiaryRepository
+                .createQueryBuilder('beneficiary')
+                .innerJoin('beneficiary.user', 'user')
+                .innerJoin('user.gender', 'gender')
+                .where('gender.code = :genderCode', { genderCode: 'F' })
+                .andWhere('beneficiary.createdAt < :previousMonthDate', { previousMonthDate })
+                .getCount(),
+            this.subventionRepository.count({
+                where: {
+                    approvalDate: LessThan(previousMonthDate)
+                },
+            }),
+            this.subventionRepository
+                .createQueryBuilder('subvention')
+                .select('SUM(subvention.awardedAmount)', 'total')
+                .where('subvention.signatureDate < :previousMonthDate', { previousMonthDate })
+                .getRawOne()
+                .then(result => Number(result?.total || 0)),
+
+            // ✅ Période précédente - Rejetées
+            this.beneficiaryRepository
+                .createQueryBuilder('beneficiary')
+                .innerJoin('beneficiary.status', 'status')
+                .where('beneficiary.isProfileComplete = :isComplete', { isComplete: true })
+                .andWhere('status.code = :statusCode', { statusCode: 'REJECTED' })
+                .andWhere('beneficiary.createdAt < :previousMonthDate', { previousMonthDate })
+                .getCount(),
+
+            // ✅ Période précédente - Présélectionnées
+            this.beneficiaryRepository
+                .createQueryBuilder('beneficiary')
+                .innerJoin('beneficiary.status', 'status')
+                .where('beneficiary.isProfileComplete = :isComplete', { isComplete: true })
+                .andWhere('status.code = :statusCode', { statusCode: 'PRE_SELECTED' })
+                .andWhere('beneficiary.createdAt < :previousMonthDate', { previousMonthDate })
+                .getCount(),
+
+            // ✅ Période précédente - Sélectionnées
+            this.beneficiaryRepository
+                .createQueryBuilder('beneficiary')
+                .innerJoin('beneficiary.status', 'status')
+                .where('beneficiary.isProfileComplete = :isComplete', { isComplete: true })
+                .andWhere('status.code = :statusCode', { statusCode: 'SELECTED' })
+                .andWhere('beneficiary.createdAt < :previousMonthDate', { previousMonthDate })
+                .getCount(),
+
+            // Période précédente - Enregistrées
+            this.beneficiaryRepository
+                .createQueryBuilder('beneficiary')
+                .innerJoin('beneficiary.status', 'status')
+                .where('beneficiary.isProfileComplete = :isComplete', { isComplete: true })
+                .andWhere('status.code = :statusCode', { statusCode: 'REGISTERED' })
+                .andWhere('beneficiary.createdAt < :previousMonthDate', { previousMonthDate })
+                .getCount(),
+        ]);
 
         const emploisCrees = 0;
         const previousEmploisCrees = 0;
@@ -225,6 +258,10 @@ export class DashboardService {
             totalSubventionsAccordees,
             totalSubventionsDecessees,
             emploisCrees,
+            totalRejected,
+            totalPreselected,
+            totalSelected,
+            totalRegistered,
             previousPeriod: {
                 totalMpme: previousTotalMpme,
                 totalCandidatures: previousTotalCandidatures,
@@ -234,6 +271,10 @@ export class DashboardService {
                 totalSubventionsAccordees: previousSubventionsAccordees,
                 totalSubventionsDecessees: previousSubventionsDecessees,
                 emploisCrees: previousEmploisCrees,
+                totalRejected: previousTotalRejected,
+                totalPreselected: previousTotalPreselected,
+                totalSelected: previousTotalSelected,
+                totalRegistered: previousTotalRegistered,
             },
             variations: {
                 totalMpme: calculateVariation(totalMpme, previousTotalMpme),
@@ -244,6 +285,10 @@ export class DashboardService {
                 totalSubventionsAccordees: calculateVariation(totalSubventionsAccordees, previousSubventionsAccordees),
                 totalSubventionsDecessees: calculateVariation(totalSubventionsDecessees, previousSubventionsDecessees),
                 emploisCrees: calculateVariation(emploisCrees, previousEmploisCrees),
+                totalRejected: calculateVariation(totalRejected, previousTotalRejected),
+                totalPreselected: calculateVariation(totalPreselected, previousTotalPreselected),
+                totalSelected: calculateVariation(totalSelected, previousTotalSelected),
+                totalRegistered: calculateVariation(totalRegistered, previousTotalRegistered),
             },
         };
     }

@@ -326,4 +326,10 @@ export class Beneficiary {
 
   @Column({ nullable: true, name: 'last_sync_at' })
   lastSyncAt: Date;
+
+  @Column({ name: 'document_correction_allowed', default: false })
+  documentCorrectionAllowed: boolean;
+
+  @Column({ name: 'documents_corrected', default: false })
+  documentsCorrected: boolean;
 }

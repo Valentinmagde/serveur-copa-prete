@@ -75,6 +75,14 @@ export class BeneficiaryFilterDto {
   @Min(0)
   minCompletion?: number;
 
+  @ApiProperty({ 
+    description: 'Filtrer par code de statut (PRE_SELECTED, REJECTED, SELECTED, etc.)',
+    example: 'PRE_SELECTED'
+  })
+  @IsOptional()
+  @IsString()
+  statusCode?: string;
+
   @ApiProperty({ required: false })
   @IsOptional()
   @IsBoolean()
@@ -121,4 +129,9 @@ export class BeneficiaryFilterDto {
   @Type(() => Number)
   @IsNumber()
   maxAmount?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  @Transform(({ value }) => value === 'true')
+  documentsCorrected?: boolean;
 }

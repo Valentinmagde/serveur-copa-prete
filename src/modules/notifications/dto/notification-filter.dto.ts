@@ -43,7 +43,7 @@ export class NotificationFilterDto {
 
   @ApiProperty({ required: false })
   @IsOptional()
-  @IsBoolean()
+  // @IsBoolean()
   isSent?: boolean;
 
   @ApiProperty({ required: false })

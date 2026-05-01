@@ -41,10 +41,10 @@ export class UploadDocumentDto {
 
   @ApiProperty({
     description: 'Étape du formulaire',
-    enum: ['STEP1', 'STEP2', 'STEP3', 'STEP4'],
+    enum: ['STEP1', 'STEP2', 'STEP3', 'STEP4', 'CORRECTION'],
     required: false,
   })
   @IsOptional()
-  @IsIn(['STEP1', 'STEP2', 'STEP3', 'STEP4'])
+  @IsIn(['STEP1', 'STEP2', 'STEP3', 'STEP4', 'CORRECTION'])
   formStep?: string;
 }

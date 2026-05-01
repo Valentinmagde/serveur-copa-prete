@@ -29,19 +29,15 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Public } from '../../common/decorators/public.decorator';
-import { NotificationFilterDto } from './dto/notification-filter.dto';
 import { MarkReadDto } from './dto/mark-read.dto';
-import { CreateNotificationDto } from './dto/create-notification.dto';
-import { SendBulkDto } from './dto/send-bulk.dto';
-import { UpdateNotificationDto } from './dto/update-notification.dto';
-import { NotificationResponseDto } from './dto/notification-response.dto';
+import { NotificationFilterDto } from './dto/notification-filter.dto';
 
 @ApiTags('notifications')
 @Controller('notifications')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth()
 export class NotificationsController {
-  constructor(private readonly notificationsService: NotificationsService) {}
+  constructor(private readonly notificationsService: NotificationsService) { }
 
   // ==================== ENDPOINTS PUBLICS ====================
   @Post('contact')
@@ -150,6 +146,83 @@ export class NotificationsController {
 
   // ==================== ENDPOINTS ADMIN ====================
 
+  @Post('send/preselected/:id')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'COPA_MANAGER')
+  @ApiOperation({ summary: 'Envoyer un email de présélection' })
+  async sendPreselectedEmail(
+    @Param('id', ParseIntPipe) id: number,
+    // @Body('comment') comment: string,
+  ) {
+    return this.notificationsService.sendPreselectedEmail(id);
+  }
+
+  @Post('send/rejected/:id')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'COPA_MANAGER')
+  @ApiOperation({ summary: 'Envoyer un email de rejet' })
+  async sendRejectedEmail(
+    @Param('id', ParseIntPipe) id: number,
+    @Body('reason') reason: string,
+  ) {
+    return this.notificationsService.sendRejectedEmail(id);
+  }
+
+  @Post('send/batch')
+  @Roles('SUPER_ADMIN', 'ADMIN')
+  @ApiOperation({ summary: `Envoi groupé d'emails` })
+  async sendBatchEmails(
+    @Body()
+    dto: {
+      type: 'PRESELECTION' | 'REJECTION';
+      beneficiaryIds: number[];
+      message: string;
+    },
+  ) {
+    return this.notificationsService.sendBatchEmails(dto);
+  }
+
+  @Get('history/preselect-reject')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'COPA_MANAGER')
+  @ApiOperation({
+    summary: `Historique des notifications de présélection et rejet`,
+  })
+  async getPreselectRejectHistory(@Query() filter: NotificationFilterDto) {
+    return this.notificationsService.getPreselectRejectHistory(filter);
+  }
+
+  @Get('candidates')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'COPA_MANAGER')
+  @ApiOperation({
+    summary: 'Récupérer la liste des candidats pour envoi groupé',
+  })
+  async getCandidatesForNotification(
+    @Query('status') status?: string,
+    @Query('search') search?: string,
+  ) {
+    return this.notificationsService.getCandidatesForNotification(
+      status,
+      search,
+    );
+  }
+
+  @Post('send/batch/auto')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'COPA_MANAGER')
+  @ApiOperation({ summary: 'Envoi groupé automatique d\'emails (présélection/rejet/sélection)' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        type: { type: 'string', enum: ['PRESELECTION', 'REJECTION', 'SELECTION'] },
+        beneficiaryIds: { type: 'array', items: { type: 'number' } },
+      },
+      required: ['type', 'beneficiaryIds'],
+    },
+  })
+  async sendBatchAutoEmails(
+    @Body() dto: { type: 'PRESELECTION' | 'REJECTION' | 'SELECTION'; beneficiaryIds: number[] },
+  ) {
+    return this.notificationsService.sendBatchAutoEmails(dto.type, dto.beneficiaryIds);
+  }
+
   //   @Get('admin/all')
   //   @Roles('SUPER_ADMIN', 'ADMIN')
   //   @ApiOperation({ summary: 'Récupérer toutes les notifications (admin)' })
@@ -166,13 +239,50 @@ export class NotificationsController {
   //     return this.notificationsService.getNotificationStats();
   //   }
 
-  // @Post('send')
-  // @Roles('SUPER_ADMIN', 'ADMIN', 'COPA_MANAGER')
-  // @ApiOperation({ summary: 'Envoyer une notification' })
-  // @ApiResponse({ status: 201 })
-  // async sendNotification(@Body() createDto: CreateNotificationDto) {
-  //   return this.notificationsService.sendNotification(createDto);
-  // }
+  @Post('send')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'COPA_MANAGER')
+  @ApiOperation({ summary: 'Envoyer un message manuel (email, SMS ou les deux)' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        type: { type: 'string', enum: ['INDIVIDUAL', 'BULK'] },
+        channel: { type: 'string', enum: ['EMAIL', 'SMS', 'BOTH'], default: 'EMAIL' },
+        beneficiaryIds: { type: 'array', items: { type: 'number' } },
+        subject: { type: 'string' },
+        message: { type: 'string' },
+        useAutoTemplate: { type: 'boolean', default: false },
+      },
+      required: ['type', 'beneficiaryIds', 'message'],
+    },
+  })
+  async sendManualNotification(@Body() dto: {
+    type: 'INDIVIDUAL' | 'BULK';
+    channel?: 'EMAIL' | 'SMS' | 'BOTH';
+    beneficiaryIds: number[];
+    subject?: string;
+    message: string;
+    useAutoTemplate?: boolean;
+  }) {
+    const channel = dto.channel ?? 'EMAIL';
+
+    if (channel === 'SMS') {
+      return this.notificationsService.sendManualSms({
+        beneficiaryIds: dto.beneficiaryIds,
+        message: dto.message,
+      });
+    }
+
+    if (channel === 'BOTH') {
+      const [emailResults, smsResults] = await Promise.all([
+        this.notificationsService.sendManualEmail({ ...dto, subject: dto.subject ?? '' }),
+        this.notificationsService.sendManualSms({ beneficiaryIds: dto.beneficiaryIds, message: dto.message }),
+      ]);
+      return { email: emailResults, sms: smsResults, total: dto.beneficiaryIds.length };
+    }
+
+    return this.notificationsService.sendManualEmail({ ...dto, subject: dto.subject ?? '' });
+  }
 
   //   @Post('admin/send/bulk')
   //   @Roles('SUPER_ADMIN', 'ADMIN')
@@ -225,13 +335,13 @@ export class NotificationsController {
   //     await this.notificationsService.deleteNotification(id);
   //   }
 
-  //   @Post('admin/resend/:id')
-  //   @Roles('SUPER_ADMIN', 'ADMIN')
-  //   @ApiOperation({ summary: 'Renvoyer une notification' })
-  //   @ApiParam({ name: 'id', type: Number })
-  //   async resendNotification(@Param('id', ParseIntPipe) id: number) {
-  //     return this.notificationsService.resendNotification(id);
-  //   }
+    @Post(':id/resend')
+    @Roles('SUPER_ADMIN', 'ADMIN')
+    @ApiOperation({ summary: 'Renvoyer une notification' })
+    @ApiParam({ name: 'id', type: Number })
+    async resendNotification(@Param('id', ParseIntPipe) id: number) {
+      return this.notificationsService.resendNotification(id);
+    }
 
   @Get('admin/templates/list')
   @Roles('SUPER_ADMIN', 'ADMIN')

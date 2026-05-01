@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseIntPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -107,6 +107,27 @@ export class ReferenceController {
   @ApiResponse({ status: 200 })
   async getCurrentCopaPhase() {
     return this.referenceService.getCurrentCopaPhases();
+  }
+
+  @Get('copa-phases/edition/:editionId')
+  @ApiOperation({ summary: 'Get phases for a specific edition (admin)' })
+  async getPhasesByEdition(@Param('editionId', ParseIntPipe) editionId: number) {
+    return this.referenceService.getPhasesByEdition(editionId);
+  }
+
+  @Post('copa-phases/:id/toggle')
+  @ApiOperation({ summary: 'Toggle phase active status (admin)' })
+  async togglePhase(@Param('id', ParseIntPipe) id: number) {
+    return this.referenceService.togglePhase(id);
+  }
+
+  @Patch('copa-phases/:id/dates')
+  @ApiOperation({ summary: 'Update phase start/end dates (admin)' })
+  async updatePhaseDates(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: { startDate: string; endDate: string },
+  ) {
+    return this.referenceService.updatePhaseDates(id, body.startDate, body.endDate);
   }
 
   @Get('roles')

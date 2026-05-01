@@ -567,10 +567,10 @@ export class EmailTemplatesService {
   } {
     this.logger.log(`Préparation email création compte pour ${data.email}`);
 
-      // Construire le contenu de l'email
-      const subject = `Votre compte d'administration COPA a été créé`;
-      
-      const html = `
+    // Construire le contenu de l'email
+    const subject = `Votre compte d'administration COPA a été créé`;
+
+    const html = `
         <!DOCTYPE html>
         <html>
         <head>
@@ -683,7 +683,7 @@ export class EmailTemplatesService {
         </html>
       `;
 
-      const text = `
+    const text = `
         VOTRE COMPTE COPA ADMIN A ÉTÉ CRÉÉ
 
         Bonjour ${data.firstName} ${data.lastName},
@@ -1037,6 +1037,291 @@ export class EmailTemplatesService {
     return { subject, html, text };
   }
 
+  // email-templates.service.ts - Ajoutez ces méthodes
+
+  /**
+   * Template: Présélection
+   */
+  getPreselectedEmail(data: {
+    firstName: string;
+    lastName: string;
+    fullName: string;
+    applicationCode: string;
+    companyName: string;
+    comment: string;
+    dashboardUrl: string;
+    annee: string;
+  }): { subject: string; html: string; text: string } {
+    const subject = `Félicitations ! Votre candidature a été présélectionnée - COPA ${data.annee}`;
+
+    const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>Présélection - COPA</title>
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #1F4E79, #2c6e9e); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
+        .content { padding: 30px 20px; background-color: #f9f9f9; }
+        .info-card { background: white; border-radius: 8px; padding: 20px; margin: 20px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .comment-box { background: #e8f4fd; border-left: 4px solid #1F4E79; padding: 15px; margin: 20px 0; font-style: italic; }
+        .button { display: inline-block; padding: 12px 24px; background-color: #1F4E79; color: white !important; text-decoration: none; border-radius: 5px; }
+        .footer { margin-top: 30px; padding: 20px; font-size: 12px; color: #666; border-top: 1px solid #ddd; text-align: center; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>Félicitations !</h1>
+          <p>Votre candidature a été présélectionnée</p>
+        </div>
+        <div class="content">
+          <p>Bonjour <strong>${data.firstName} ${data.lastName}</strong>,</p>
+          <p>Nous sommes ravis de vous annoncer que votre candidature a été <strong>présélectionnée</strong> pour la prochaine étape du Concours de Plans d'Affaires (COPA) ${data.annee}.</p>
+          
+          <div class="info-card">
+            <p><strong>📋 Récapitulatif :</strong></p>
+            <p>Code candidature : <strong>${data.applicationCode}</strong></p>
+            <p>Entreprise : <strong>${data.companyName}</strong></p>
+          </div>            
+          
+          ${data.comment
+        ? `
+                  <div class="comment-box">
+                    <p><strong>💬 Commentaire du comité :</strong></p>
+                    <p>${data.comment}</p>
+                  </div>
+                `
+        : ``
+      }
+          
+          <p><strong>Prochaines étapes :</strong></p>
+          <ol>
+            <li>Vous recevrez une invitation pour l'entretien de sélection</li>
+            <li>Préparez votre présentation détaillée du projet</li>
+            <li>Les dates seront communiquées prochainement</li>
+          </ol>
+          
+          <div style="text-align: center;">
+            <a href="${data.dashboardUrl}" class="button">Accéder à mon espace</a>
+          </div>
+        </div>
+        <div class="footer">
+          <p>© ${data.annee} COPA - Concours de Plans d'Affaires du Burundi</p>
+          <p>Pour toute question : <a href="mailto:${this.supportEmail}">${this.supportEmail}</a> | ${this.telephoneSupport}</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+    const text = `
+    FÉLICITATIONS ! VOTRE CANDIDATURE A ÉTÉ PRÉSÉLECTIONNÉE - COPA ${data.annee}
+
+    Bonjour ${data.firstName} ${data.lastName},
+
+    Nous sommes ravis de vous annoncer que votre candidature a été présélectionnée.
+
+    Récapitulatif :
+    Code : ${data.applicationCode}
+    Entreprise : ${data.companyName}
+
+    ${data.comment ? `Commentaire : ${data.comment}` : ''}
+
+    Prochaines étapes :
+    1. Entretien de sélection
+    2. Présentation détaillée du projet
+
+    Accédez à votre espace : ${data.dashboardUrl}
+
+    © ${data.annee} COPA - Concours de Plans d'Affaires du Burundi
+  `;
+
+    return { subject, html, text };
+  }
+
+  /**
+   * Template: Rejet
+   */
+  getRejectedEmail(data: {
+    firstName: string;
+    lastName: string;
+    fullName: string;
+    applicationCode: string;
+    companyName: string;
+    reason: string;
+    dashboardUrl: string;
+    annee: string;
+  }): { subject: string; html: string; text: string } {
+    const subject = `Suite de votre candidature - COPA ${data.annee}`;
+
+    const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>Suite de votre candidature - COPA</title>
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background-color: #6c757d; color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
+        .content { padding: 30px 20px; background-color: #f9f9f9; }
+        .reason-box { background: #fef2f2; border-left: 4px solid #dc2626; padding: 15px; margin: 20px 0; }
+        .encouragement { background: #e8f4fd; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center; }
+        .button { display: inline-block; padding: 12px 24px; background-color: #1F4E79; color: white !important; text-decoration: none; border-radius: 5px; }
+        .footer { margin-top: 30px; padding: 20px; font-size: 12px; color: #666; border-top: 1px solid #ddd; text-align: center; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>Suite de votre candidature</h1>
+        </div>
+        <div class="content">
+          <p>Bonjour <strong>${data.firstName} ${data.lastName}</strong>,</p>
+          
+          <p>Nous vous remercions pour votre participation au Concours de Plans d'Affaires (COPA) ${data.annee}.</p>
+          
+          <p>Après examen approfondi de votre dossier par notre comité d'évaluation, nous ne pouvons pas donner suite à votre candidature.</p>
+          
+          <div class="reason-box">
+            <p><strong>📌 Motif :</strong></p>
+            <p>${data.reason}</p>
+          </div>
+          
+          <div class="encouragement">
+            <p><strong>🌟 Ne vous découragez pas !</strong></p>
+            <p>Nous vous encourageons à utiliser ces retours pour améliorer votre projet et postuler à la prochaine édition du COPA.</p>
+            <p>Des formations et accompagnements sont disponibles pour vous aider.</p>
+          </div>
+          
+          <div style="text-align: center;">
+            <a href="${data.dashboardUrl}" class="button">Accéder à mon espace</a>
+          </div>
+        </div>
+        <div class="footer">
+          <p>© ${data.annee} COPA - Concours de Plans d'Affaires du Burundi</p>
+          <p>Pour toute question : <a href="mailto:${this.supportEmail}">${this.supportEmail}</a> | ${this.telephoneSupport}</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+    const text = `
+    SUITE DE VOTRE CANDIDATURE - COPA ${data.annee}
+
+    Bonjour ${data.firstName} ${data.lastName},
+
+    Nous vous remercions pour votre participation au COPA ${data.annee}.
+
+    Après examen de votre dossier, nous ne pouvons pas donner suite à votre candidature.
+
+    MOTIF :
+    ${data.reason}
+
+    🌟 Ne vous découragez pas ! Des formations sont disponibles pour vous aider à améliorer votre projet.
+
+    Accédez à votre espace : ${data.dashboardUrl}
+
+    © ${data.annee} COPA - Concours de Plans d'Affaires du Burundi
+  `;
+
+    return { subject, html, text };
+  }
+
+  /**
+   * Template: Email de sélection (lauréat)
+   */
+  getSelectedEmail(data: {
+    firstName: string;
+    lastName: string;
+    fullName: string;
+    applicationCode: string;
+    companyName: string;
+    dashboardUrl: string;
+    annee: string;
+  }): { subject: string; html: string; text: string } {
+    const subject = `✅ Félicitations ! Vous êtes sélectionné - COPA ${data.annee}`;
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Sélection - COPA</title>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: linear-gradient(135deg, #28a745, #20c997); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
+          .content { padding: 30px 20px; background-color: #f9f9f9; }
+          .info-card { background: white; border-radius: 8px; padding: 20px; margin: 20px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+          .button { display: inline-block; padding: 12px 24px; background-color: #28a745; color: white !important; text-decoration: none; border-radius: 5px; }
+          .footer { margin-top: 30px; padding: 20px; font-size: 12px; color: #666; border-top: 1px solid #ddd; text-align: center; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>✅ Félicitations !</h1>
+            <p>Votre candidature a été sélectionnée</p>
+          </div>
+          <div class="content">
+            <p>Bonjour <strong>${data.firstName} ${data.lastName}</strong>,</p>
+            <p>Nous avons le plaisir de vous annoncer que votre candidature a été <strong>sélectionnée</strong> pour le Concours de Plans d'Affaires (COPA) ${data.annee}.</p>
+            
+            <div class="info-card">
+              <p><strong>📋 Récapitulatif :</strong></p>
+              <p>Code candidature : <strong>${data.applicationCode}</strong></p>
+              <p>Entreprise : <strong>${data.companyName}</strong></p>
+            </div>
+            
+            <p><strong>Prochaines étapes :</strong></p>
+            <ol>
+              <li>Vous recevrez un email avec les détails de la subvention</li>
+              <li>Signature de la convention</li>
+              <li>Planification du décaissement</li>
+            </ol>
+            
+            <div style="text-align: center;">
+              <a href="${data.dashboardUrl}" class="button">Accéder à mon espace</a>
+            </div>
+          </div>
+          <div class="footer">
+            <p>© ${data.annee} COPA - Concours de Plans d'Affaires du Burundi</p>
+            <p>Pour toute question : <a href="mailto:${this.supportEmail}">${this.supportEmail}</a> | ${this.telephoneSupport}</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const text = `
+      FÉLICITATIONS ! VOTRE CANDIDATURE A ÉTÉ SÉLECTIONNÉE - COPA ${data.annee}
+
+      Bonjour ${data.firstName} ${data.lastName},
+
+      Nous avons le plaisir de vous annoncer que votre candidature a été sélectionnée.
+
+      Récapitulatif :
+      Code : ${data.applicationCode}
+      Entreprise : ${data.companyName}
+
+      Prochaines étapes :
+      1. Détails de la subvention
+      2. Signature de la convention
+      3. Planification du décaissement
+
+      Accédez à votre espace : ${data.dashboardUrl}
+
+      © ${data.annee} COPA - Concours de Plans d'Affaires du Burundi
+    `;
+
+    return { subject, html, text };
+  }
+
   // ==================== TEMPLATES SMS ====================
 
   /**
@@ -1210,24 +1495,22 @@ export class EmailTemplatesService {
               <td>Email</td>
               <td><a href="mailto:${data.email}">${data.email}</a></td>
             </tr>
-            ${
-              data.phone
-                ? `
+            ${data.phone
+        ? `
             <tr>
               <td>Téléphone</td>
               <td><a href="tel:${data.phone}">${data.phone}</a></td>
             </tr>`
-                : ''
-            }
-            ${
-              data.category
-                ? `
+        : ''
+      }
+            ${data.category
+        ? `
             <tr>
               <td>Catégorie</td>
               <td>${data.category}</td>
             </tr>`
-                : ''
-            }
+        : ''
+      }
             <tr>
               <td>Sujet</td>
               <td><strong>${data.subject}</strong></td>
@@ -1239,9 +1522,8 @@ export class EmailTemplatesService {
             <p style="white-space: pre-wrap; line-height: 1.6;">${data.message.replace(/\n/g, '<br>')}</p>
           </div>
           
-          ${
-            data.metadata
-              ? `
+          ${data.metadata
+        ? `
           <div class="metadata-box">
             <p style="margin: 5px 0;"><strong>Métadonnées:</strong></p>
             <p style="margin: 5px 0;">IP: ${data.metadata.ip || 'N/A'}</p>
@@ -1250,8 +1532,8 @@ export class EmailTemplatesService {
             <p style="margin: 5px 0;">Date: ${new Date().toLocaleString('fr-FR')}</p>
           </div>
           `
-              : ''
-          }
+        : ''
+      }
           
           <div style="text-align: center;">
             <a href="${appUrl}/admin/notifications" class="button">
@@ -1281,21 +1563,121 @@ export class EmailTemplatesService {
     Message:
     ${data.message}
     
-    ${
-      data.metadata
+    ${data.metadata
         ? `
-    Métadonnées:
-    IP: ${data.metadata.ip || 'N/A'}
-    User-Agent: ${data.metadata.userAgent || 'N/A'}
-    Date: ${new Date().toLocaleString('fr-FR')}
-    `
+          Métadonnées:
+          IP: ${data.metadata.ip || 'N/A'}
+          User-Agent: ${data.metadata.userAgent || 'N/A'}
+          Date: ${new Date().toLocaleString('fr-FR')}
+          `
         : ''
-    }
+      }
     
     Voir dans l'admin: ${appUrl}/admin/notifications
   `;
 
     return { subject, html, text };
+  }
+
+  /**
+   * Formate le message en HTML
+   */
+  getManualEmailMessage(message: string): string {
+    return `
+      <!DOCTYPE html>
+      <html lang="fr">
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Message COPA</title>
+        <style>
+          body {
+            margin: 0; padding: 0;
+            font-family: Arial, sans-serif;
+            font-size: 14px;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f0f0f0;
+          }
+          .wrapper { width: 100%; background-color: #f0f0f0; }
+          .container {
+            width: 100%;
+            max-width: 100%;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+          }
+          .header {
+            background-color: #1F4E79;
+            color: white;
+            padding: 24px 20px;
+            text-align: center;
+          }
+          .header h1 { margin: 0; font-size: 24px; letter-spacing: 2px; }
+          .header p  { margin: 4px 0 0; font-size: 13px; opacity: 0.85; }
+          .content {
+            padding: 24px 24px 0;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+          }
+
+          /* ── Quill content reset ─────────────────────────────── */
+          .content p  { margin: 0 0 10px; }
+          .content ul,
+          .content ol { margin: 0 0 10px; padding-left: 22px; }
+          .content blockquote {
+            margin: 0 0 10px 0;
+            padding: 8px 16px;
+            border-left: 4px solid #1F4E79;
+            background: #f4f8ff;
+            color: #555;
+          }
+          .content img { max-width: 100%; height: auto; display: block; }
+          .content a   { color: #1F4E79; }
+
+          /* ── Tables ─────────────────────────────────────────── */
+          .content table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+            margin-bottom: 12px;
+            font-size: 13px;
+          }
+          .content table td,
+          .content table th {
+            border: 1px solid #ccc;
+            padding: 7px 10px;
+            vertical-align: top;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+          }
+          .content table th {
+            background-color: #1F4E79;
+            color: #fff;
+            font-weight: bold;
+            text-align: left;
+          }
+          .content table tr:nth-child(even) td { background-color: #f7f9fc; }
+
+        </style>
+      </head>
+      <body>
+        <div class="wrapper">
+          <div class="container">
+            <div class="header">
+              <h1>COPA</h1>
+              <p>Concours de Plans d'Affaires</p>
+            </div>
+            <div class="content">
+              ${message}
+            </div>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
   }
 
   /**

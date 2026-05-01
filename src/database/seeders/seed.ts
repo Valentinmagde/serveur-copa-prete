@@ -514,70 +514,157 @@ async function seed() {
             '{"requiresCompanyProfile": true, "requiresBeneficiaryProfile": true, "maxApplicants": 500}'::jsonb
           ),
           (
-            ${copa2026Id}, 'BUSINESS_PLAN_SUBMISSION',
-            'Business Plan Submission', 'Soumission du plan d''affaires', 'Gutanga umushinga w’ubucuruzi',
-            'Submission of detailed business plan',
-            'Soumission du plan d''affaires détaillé',
-            'Gutanga umushinga w’ubucuruzi mu buryo burambuye',
-            '2026-04-16', '2026-05-30', false, 2,
+            ${copa2026Id}, ‘CANDIDATURE_SUBMISSION’,
+            ‘Candidature Submission’, ‘Soumission de candidature’, ‘Gutanga candidature’,
+            ‘Submission of candidature documents after registration’,
+            ‘Soumission des documents de candidature après l’’inscription’,
+            ‘Gutanga inyandiko z’’icandidature nyuma yo kwiyandikisha’,
+            ‘2026-04-07’, ‘2026-04-15’, false, 2,
             false, true, 0,
-            '{"requiresBusinessPlan": true, "maxPages": 30, "requiredSections": ["executive_summary", "market_analysis", "financial_projections"]}'::jsonb
+            ‘{"allowDocumentUpload": true, "requiresIdCard": true, "requiresCompanyDoc": true, "requiresBankStatement": true}’::jsonb
           ),
           (
-            ${copa2026Id}, 'EVALUATION',
-            'Evaluation', 'Évaluation', 'Isuzuma',
-            'Business plan evaluation by technical committee',
-            'Évaluation des plans d''affaires par le comité technique',
-            'Isuzuma ry’imishinga y’ubucuruzi n’abagize komite y’ubuhanga',
-            '2026-06-01', '2026-07-15', false, 3,
-            true, false, NULL,
-            '{"minEvaluators": 2, "maxEvaluators": 3, "evaluationCriteria": [{"name": "economic_viability", "weight": 30}, {"name": "innovation", "weight": 25}, {"name": "social_impact", "weight": 20}, {"name": "environmental_impact", "weight": 15}, {"name": "implementation_capacity", "weight": 10}]}'::jsonb
-          ),
-          (
-            ${copa2026Id}, 'SELECTION',
-            'Selection', 'Sélection', 'Gutoranya',
-            'Final selection by the selection committee',
-            'Sélection finale par le comité de sélection',
-            'Gutoranya mu mukino wa nyuma n’abagize komite y’itoranywa',
-            '2026-07-16', '2026-07-31', false, 4,
-            true, false, NULL,
-            '{"selectionCommitteeMembers": 7, "quorumRequired": 5, "selectionCriteria": [{"name": "evaluation_score", "weight": 70}, {"name": "committee_vote", "weight": 30}]}'::jsonb
-          ),
-          (
-            ${copa2026Id}, 'AWARDING',
-            'Awarding', 'Attribution', 'Itangwa ry’impano',
-            'Agreement signing and subsidy disbursement',
-            'Signature des conventions et versement des subventions',
-            'Gusinyisha amasezerano no gutanga inkunga',
-            '2026-08-01', '2026-10-31', false, 5,
-            true, false, NULL,
-            '{"requiresAgreementSignature": true, "requiresBankAccount": true, "disbursementSchedule": [{"percentage": 40, "condition": "signature_convention"}, {"percentage": 30, "condition": "rapport_trimestriel"}, {"percentage": 30, "condition": "rapport_final"}]}'::jsonb
-          ),
-          (
-            ${copa2026Id}, 'MENTORING',
-            'Mentoring', 'Accompagnement', 'Ubuyobozi',
-            'Beneficiary mentoring and support',
-            'Accompagnement des bénéficiaires par des mentors',
-            'Ubuyobozi n’inkunga ku banywanyi',
-            '2026-08-01', '2027-07-31', false, 6,
+            ${copa2026Id}, ‘BUSINESS_PLAN_SUBMISSION’,
+            ‘Business Plan Submission’, ‘Soumission du plan d’’affaires’, ‘Gutanga umushinga w’ubucuruzi’,
+            ‘Submission of detailed business plan’,
+            ‘Soumission du plan d’’affaires détaillé’,
+            ‘Gutanga umushinga w’ubucuruzi mu buryo burambuye’,
+            ‘2026-04-16’, ‘2026-05-30’, false, 3,
             false, true, 0,
-            '{"mentorRatio": 5, "minMentoringSessions": 6, "sessionFrequency": "monthly"}'::jsonb
+            ‘{"requiresBusinessPlan": true, "maxPages": 30, "requiredSections": ["executive_summary", "market_analysis", "financial_projections"]}’::jsonb
           ),
           (
-            ${copa2026Id}, 'MONITORING',
-            'Monitoring', 'Suivi', 'Gukurikirana',
-            'Project monitoring and evaluation',
-            'Suivi et évaluation des projets financés',
-            'Gukurikirana n’isuzuma ry’imishinga y’inkunga',
-            '2026-08-01', '2027-12-31', false, 7,
+            ${copa2026Id}, ‘EVALUATION’,
+            ‘Evaluation’, ‘Évaluation’, ‘Isuzuma’,
+            ‘Business plan evaluation by technical committee’,
+            ‘Évaluation des plans d’’affaires par le comité technique’,
+            ‘Isuzuma ry’imishinga y’ubucuruzi n’abagize komite y’ubuhanga’,
+            ‘2026-06-01’, ‘2026-07-15’, false, 4,
+            true, false, NULL,
+            ‘{"minEvaluators": 2, "maxEvaluators": 3, "evaluationCriteria": [{"name": "economic_viability", "weight": 30}, {"name": "innovation", "weight": 25}, {"name": "social_impact", "weight": 20}, {"name": "environmental_impact", "weight": 15}, {"name": "implementation_capacity", "weight": 10}]}’::jsonb
+          ),
+          (
+            ${copa2026Id}, ‘SELECTION’,
+            ‘Selection’, ‘Sélection’, ‘Gutoranya’,
+            ‘Final selection by the selection committee’,
+            ‘Sélection finale par le comité de sélection’,
+            ‘Gutoranya mu mukino wa nyuma n’abagize komite y’itoranywa’,
+            ‘2026-07-16’, ‘2026-07-31’, false, 5,
+            true, false, NULL,
+            ‘{"selectionCommitteeMembers": 7, "quorumRequired": 5, "selectionCriteria": [{"name": "evaluation_score", "weight": 70}, {"name": "committee_vote", "weight": 30}]}’::jsonb
+          ),
+          (
+            ${copa2026Id}, ‘AWARDING’,
+            ‘Awarding’, ‘Attribution’, ‘Itangwa ry’impano’,
+            ‘Agreement signing and subsidy disbursement’,
+            ‘Signature des conventions et versement des subventions’,
+            ‘Gusinyisha amasezerano no gutanga inkunga’,
+            ‘2026-08-01’, ‘2026-10-31’, false, 6,
+            true, false, NULL,
+            ‘{"requiresAgreementSignature": true, "requiresBankAccount": true, "disbursementSchedule": [{"percentage": 40, "condition": "signature_convention"}, {"percentage": 30, "condition": "rapport_trimestriel"}, {"percentage": 30, "condition": "rapport_final"}]}’::jsonb
+          ),
+          (
+            ${copa2026Id}, ‘MENTORING’,
+            ‘Mentoring’, ‘Accompagnement’, ‘Ubuyobozi’,
+            ‘Beneficiary mentoring and support’,
+            ‘Accompagnement des bénéficiaires par des mentors’,
+            ‘Ubuyobozi n’inkunga ku banywanyi’,
+            ‘2026-08-01’, ‘2027-07-31’, false, 7,
             false, true, 0,
-            '{"reportingFrequency": "quarterly", "monitoringIndicators": ["jobs_created", "revenue_growth", "social_impact", "environmental_impact"], "siteVisitsRequired": true}'::jsonb
+            ‘{"mentorRatio": 5, "minMentoringSessions": 6, "sessionFrequency": "monthly"}’::jsonb
+          ),
+          (
+            ${copa2026Id}, ‘MONITORING’,
+            ‘Monitoring’, ‘Suivi’, ‘Gukurikirana’,
+            ‘Project monitoring and evaluation’,
+            ‘Suivi et évaluation des projets financés’,
+            ‘Gukurikirana n’isuzuma ry’imishinga y’inkunga’,
+            ‘2026-08-01’, ‘2027-12-31’, false, 8,
+            false, true, 0,
+            ‘{"reportingFrequency": "quarterly", "monitoringIndicators": ["jobs_created", "revenue_growth", "social_impact", "environmental_impact"], "siteVisitsRequired": true}’::jsonb
           );
         `);
       }
 
       console.log('Copa phases seeded');
     }
+
+    // Insérer les phases manquantes (idempotent — ne touche pas aux phases existantes)
+    {
+      const editions: {
+        id: number,
+        code: string,
+      }[] = await queryRunner.manager.query(
+        `SELECT id, code FROM copa_editions`,
+      );
+      const copa2026Id: number | undefined = editions.find(
+        (e) => e.code === 'COPA-2026-FIRST-ROUND',
+      )?.id;
+
+      if (copa2026Id) {
+        // Décaler les ordres existants (≥ 2) pour laisser la place à la nouvelle phase
+        await queryRunner.manager.query(`
+          UPDATE copa_phases
+          SET display_order = display_order + 1
+          WHERE copa_edition_id = ${copa2026Id}
+          AND display_order >= 2
+          AND phase_code <> 'CANDIDATURE_SUBMISSION';
+        `);
+
+        // Insérer la phase manquante si elle n'existe pas encore
+        await queryRunner.manager.query(`
+          INSERT INTO copa_phases
+          (copa_edition_id, phase_code, phase_name, phase_name_fr, phase_name_rn,
+          phase_description, phase_description_fr, phase_description_rn,
+          start_date, end_date, is_active, display_order,
+          requires_approval, auto_transition, transition_days, metadata)
+          SELECT
+            ${copa2026Id}, 'CANDIDATURE_SUBMISSION',
+            'Candidature Submission', 'Soumission de candidature', 'Gutanga candidature',
+            'Submission of candidature documents after registration',
+            'Soumission des documents de candidature après l''inscription',
+            'Gutanga inyandiko z''icandidature nyuma yo kwiyandikisha',
+            '2026-04-07', '2026-04-15', false, 2,
+            false, true, 0,
+            '{"allowDocumentUpload": true, "requiresIdCard": true, "requiresCompanyDoc": true, "requiresBankStatement": true}'::jsonb
+          WHERE NOT EXISTS (
+            SELECT 1 FROM copa_phases
+            WHERE copa_edition_id = ${copa2026Id}
+            AND phase_code = 'CANDIDATURE_SUBMISSION'
+          );
+        `);
+        console.log('Missing phases patched');
+      }
+    }
+
+    // Activer la correction de documents pour les candidats concernés
+    await queryRunner.manager.query(`
+      ALTER TABLE beneficiaries
+      ADD COLUMN IF NOT EXISTS document_correction_allowed BOOLEAN DEFAULT FALSE;
+    `);
+
+    await queryRunner.manager.query(`
+      UPDATE beneficiaries
+      SET document_correction_allowed = TRUE
+      WHERE id IN (
+        2153,2152,2143,2139,2138,2124,2118,2114,2109,2106,2098,2091,2077,2074,2072,
+        2068,2062,2061,2047,2041,2035,2033,2032,2017,2010,1998,1994,1992,1988,1987,
+        1985,1984,1983,1973,1971,1970,1960,1957,1946,1944,1939,1933,1927,1924,1919,
+        1896,1876,1873,1871,1869,1865,1861,1860,1847,1834,1830,1828,1821,1807,1803,
+        1780,1758,1754,1749,1739,1733,1723,1708,1706,1695,1679,1678,1674,1662,1661,
+        1660,1630,1620,1602,1580,1574,1561,1548,1531,1519,1510,1503,1493,1484,1474,
+        1434,1431,1416,1393,1371,1360,1353,1336,1335,1325,1319,1317,1300,1295,1279,
+        1274,1262,1260,1259,1255,1253,1250,1243,1241,1239,1208,1192,1191,1185,1175,
+        1173,1155,1149,1143,1133,1100,1079,1070,1043,1035,1032,1029,1014,997,996,
+        989,988,983,980,971,968,965,964,959,931,930,913,904,896,891,882,881,874,870,
+        867,853,838,829,801,793,790,788,782,771,752,746,723,720,719,716,703,677,672,
+        649,648,626,605,600,581,578,540,537,531,522,516,511,502,479,465,439,438,436,
+        434,426,381,372,364,363,357,352,339,326,325,323,322,321,310,299,281,277,261,
+        251,244,235,227,222,217,208,203,197,179,176,172,168,147,138,119,113,110,105,
+        93,87,81,79,75,66,62,43,38,36,12,1228
+      );
+    `);
+    console.log('Document correction permissions set');
 
     await queryRunner.commitTransaction();
     console.log('Seeding completed successfully');

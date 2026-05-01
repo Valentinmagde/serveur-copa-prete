@@ -24,6 +24,18 @@ export class PreviousPeriodDto {
 
     @ApiProperty({ description: 'Nombre d\'emplois créés (période précédente)', example: 320 })
     emploisCrees: number;
+
+    @ApiProperty({ description: 'Nombre de candidatures rejetées (période précédente)', example: 25 })
+    totalRejected: number;
+
+    @ApiProperty({ description: 'Nombre de candidatures présélectionnées (période précédente)', example: 40 })
+    totalPreselected: number;
+
+    @ApiProperty({ description: 'Nombre de candidatures sélectionnées (période précédente)', example: 12 })
+    totalSelected: number;
+
+    @ApiProperty({ description: 'Nombre de candidatures enregistrées (période précédente)', example: 60 })
+    totalRegistered: number;
 }
 
 export class VariationsDto {
@@ -50,6 +62,18 @@ export class VariationsDto {
 
     @ApiProperty({ description: 'Variation des emplois créés (%)', example: 15.0 })
     emploisCrees: number;
+
+    @ApiProperty({ description: 'Variation du nombre de candidatures rejetées (%)', example: 20.0 })
+    totalRejected: number;
+
+    @ApiProperty({ description: 'Variation du nombre de candidatures présélectionnées (%)', example: 12.5 })
+    totalPreselected: number;
+
+    @ApiProperty({ description: 'Variation du nombre de candidatures sélectionnées (%)', example: 25.0 })
+    totalSelected: number;
+
+    @ApiProperty({ description: 'Variation du nombre de candidatures enregistrées (%)', example: 10.0 })
+    totalRegistered: number;
 }
 
 export class StatsCardsResponseDto {
@@ -77,11 +101,26 @@ export class StatsCardsResponseDto {
     @ApiProperty({ description: 'Nombre d\'emplois créés', example: 500 })
     emploisCrees: number;
 
-    @ApiProperty({ description: 'Données de la période précédente pour comparaison', type: PreviousPeriodDto })
+    @ApiProperty({
+        description: 'Données de la période précédente pour comparaison',
+        type: PreviousPeriodDto,
+    })
     previousPeriod: PreviousPeriodDto;
 
     @ApiProperty({ description: 'Variations en pourcentage par rapport à la période précédente', type: VariationsDto, required: false })
     variations?: VariationsDto;
+
+    @ApiProperty({ description: 'Nombre de candidatures rejetées', example: 30 })
+    totalRejected: number;
+
+    @ApiProperty({ description: 'Nombre de candidatures présélectionnées', example: 50 })
+    totalPreselected: number;
+
+    @ApiProperty({ description: 'Nombre de candidatures sélectionnées', example: 15 })
+    totalSelected: number;
+
+    @ApiProperty({ description: 'Nombre de candidatures enregistrées', example: 80 })
+    totalRegistered: number;
 }
 
 export class SectorDataDto {

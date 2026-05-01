@@ -95,7 +95,7 @@ export class BeneficiariesService {
       limit = 10,
       search,
       isProfileComplete,
-      // status,
+      statusCode,
       statusId,
       companyId,
       provinceId,
@@ -112,9 +112,14 @@ export class BeneficiariesService {
       minCompletion,
       fromDate,
       toDate,
+      documentsCorrected,
     } = filterDto;
 
-    const { skip, take } = PaginationUtil.getSkipTake(page, limit);
+    // const { skip, take } = PaginationUtil.getSkipTake(page, limit);
+    const isUnlimited = limit === -1;
+    const { skip, take } = isUnlimited
+      ? { skip: 0, take: 0 }
+      : PaginationUtil.getSkipTake(page, limit);
 
     const queryBuilder = this.beneficiaryRepository
       .createQueryBuilder('beneficiary')
@@ -142,6 +147,17 @@ export class BeneficiariesService {
     }
 
     // ── Statut ────────────────────────────────────────────────────────────────
+    if (statusCode) {
+      // Supporte à la fois un seul code ou un tableau de codes
+      if (Array.isArray(statusCode)) {
+        queryBuilder.andWhere('status.code IN (:...statusCodes)', {
+          statusCodes: statusCode,
+        });
+      } else {
+        queryBuilder.andWhere('status.code = :statusCode', { statusCode });
+      }
+    }
+
     if (statusId) {
       queryBuilder.andWhere('beneficiary.statusId = :statusId', { statusId });
     }
@@ -150,6 +166,13 @@ export class BeneficiariesService {
       queryBuilder.andWhere(
         'beneficiary.isProfileComplete = :isProfileComplete',
         { isProfileComplete },
+      );
+    }
+
+    if (documentsCorrected !== undefined) {
+      queryBuilder.andWhere(
+        'beneficiary.documentsCorrected = :documentsCorrected',
+        { documentsCorrected },
       );
     }
 
@@ -266,7 +289,29 @@ export class BeneficiariesService {
       .take(take)
       .getManyAndCount();
 
-    return PaginationUtil.paginate(beneficiaries, total, { page, limit });
+    const userIds = beneficiaries.map(b => b.userId).filter(Boolean);
+    const lastNotifiedMap = new Map<number, Date | null>();
+
+    if (userIds.length > 0) {
+      const rows = await this.dataSource
+        .createQueryBuilder()
+        .select('n.recipient_user_id', 'userId')
+        .addSelect('MAX(n.sent_at)', 'lastNotifiedAt')
+        .from('notifications', 'n')
+        .where('n.recipient_user_id IN (:...userIds)', { userIds })
+        .andWhere('n.is_sent = true')
+        .groupBy('n.recipient_user_id')
+        .getRawMany();
+
+      rows.forEach((r: any) => lastNotifiedMap.set(Number(r.userId), r.lastNotifiedAt));
+    }
+
+    const enriched: any[] = beneficiaries.map(b => ({
+      ...b,
+      lastNotifiedAt: lastNotifiedMap.get(b.userId) ?? null,
+    }));
+
+    return PaginationUtil.paginate(enriched, total, { page, limit });
   }
 
   async findById(id: number, relations: string[] = []): Promise<any> {
@@ -2066,6 +2111,23 @@ export class BeneficiariesService {
     await this.beneficiaryRepository.save(beneficiary);
 
     return { success: true, message: 'Candidat rejeté avec succès' };
+  }
+
+  async submitDocumentCorrection(beneficiaryId: number) {
+    const beneficiary = await this.beneficiaryRepository.findOne({
+      where: { id: beneficiaryId },
+    });
+
+    if (!beneficiary) {
+      throw new NotFoundException('Bénéficiaire non trouvé');
+    }
+
+    beneficiary.documentCorrectionAllowed = false;
+    beneficiary.documentsCorrected = true;
+
+    await this.beneficiaryRepository.save(beneficiary);
+
+    return { success: true };
   }
 
   async updateComment(beneficiaryId: number, dto: UpdateCommentDto) {

@@ -120,14 +120,14 @@ export class DocumentsService {
     });
 
     if (!documentType) {
-      throw new BadRequestException('Invalid document type');
+      throw new BadRequestException('Type de document invalide.');
     }
 
     // Validate file size
     const maxSize = (documentType.maxSizeMb || 10) * 1024 * 1024;
     if (file?.size > maxSize) {
       throw new BadRequestException(
-        `File size exceeds maximum allowed (${documentType.maxSizeMb}MB)`,
+        `La taille du fichier dépasse la limite autorisée (${documentType.maxSizeMb}Mo).`,
       );
     }
 
@@ -137,7 +137,7 @@ export class DocumentsService {
       file.originalname.split('.').pop()?.toLowerCase() || '';
     if (!allowedFormats.includes(fileExtension)) {
       throw new BadRequestException(
-        `File format not allowed. Allowed: ${allowedFormats.join(', ')}`,
+        `Format non autorisé. Formats acceptés : ${allowedFormats.join(', ')}.`,
       );
     }
 

@@ -143,6 +143,28 @@ export class ReferenceService {
     });
   }
 
+  async getPhasesByEdition(editionId: number): Promise<CopaPhase[]> {
+    return this.copaPhaseRepository.find({
+      where: { copaEditionId: editionId },
+      order: { displayOrder: 'ASC' },
+    });
+  }
+
+  async togglePhase(phaseId: number): Promise<CopaPhase> {
+    const phase = await this.copaPhaseRepository.findOne({ where: { id: phaseId } });
+    if (!phase) throw new Error(`Phase ${phaseId} not found`);
+    phase.isActive = !phase.isActive;
+    return this.copaPhaseRepository.save(phase);
+  }
+
+  async updatePhaseDates(phaseId: number, startDate: string, endDate: string): Promise<CopaPhase> {
+    const phase = await this.copaPhaseRepository.findOne({ where: { id: phaseId } });
+    if (!phase) throw new Error(`Phase ${phaseId} not found`);
+    phase.startDate = new Date(startDate);
+    phase.endDate = new Date(endDate);
+    return this.copaPhaseRepository.save(phase);
+  }
+
   async getRoles(): Promise<Role[]> {
     return this.roleRepository.find({
       where: { isActive: true },

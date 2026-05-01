@@ -29,6 +29,11 @@ export enum NotificationType {
   SUCCESS = 'SUCCESS',
   ERROR = 'ERROR',
   WARNING = 'WARNING',
+  PRESELECTION = 'PRESELECTION',
+  REJECTION = 'REJECTION',
+  SELECTION = 'SELECTION',
+  BULK = 'BULK',
+  INDIVIDUAL = 'INDIVIDUAL',
 }
 
 export class CreateNotificationDto {
