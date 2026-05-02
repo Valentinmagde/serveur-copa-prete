@@ -27,87 +27,6 @@ export class DocumentsService {
     private readonly s3Service: S3Service,
   ) {}
 
-  // async upload(
-  //   file: Express.Multer.File,
-  //   uploadDto: UploadDocumentDto,
-  //   userId: number,
-  //   ip: string,
-  // ): Promise<Document> {
-  //   // Validate document type
-  //   const documentType = await this.documentTypeRepository.findOne({
-  //     where: { id: uploadDto.documentTypeId, isActive: true },
-  //   });
-
-  //   if (!documentType) {
-  //     throw new BadRequestException('Invalid document type');
-  //   }
-
-  //   // Validate file size
-  //   const maxSize = (documentType.maxSizeMb || 10) * 1024 * 1024;
-  //   if (file.size > maxSize) {
-  //     throw new BadRequestException(
-  //       `File size exceeds maximum allowed (${documentType.maxSizeMb}MB)`,
-  //     );
-  //   }
-
-  //   // Validate mime type
-  //   const allowedFormats = documentType.allowedFormats || [
-  //     'pdf',
-  //     'jpg',
-  //     'png',
-  //     'doc',
-  //     'docx',
-  //   ];
-  //   const fileExtension =
-  //     file.originalname.split('.').pop()?.toLowerCase() || '';
-  //   if (!allowedFormats.includes(fileExtension)) {
-  //     throw new BadRequestException(
-  //       `File format not allowed. Allowed: ${allowedFormats.join(', ')}`,
-  //     );
-  //   }
-
-  //   // Generate hash
-  //   const hash = crypto.createHash('sha256').update(file.buffer).digest('hex');
-
-  //   // Check for duplicate
-  //   const existingDocument = await this.documentRepository.findOne({
-  //     where: { hashSha256: hash },
-  //   });
-
-  //   if (existingDocument) {
-  //     // Return existing document if it's the same file
-  //     return existingDocument;
-  //   }
-
-  //   // Generate filename
-  //   const storedFilename = `${Date.now()}-${crypto.randomBytes(16).toString('hex')}.${fileExtension}`;
-
-  //   // Upload to S3 or local storage
-  //   const filePath = await this.s3Service.uploadFile(
-  //     file.buffer,
-  //     storedFilename,
-  //     file.mimetype,
-  //   );
-
-  //   // Create document record
-  //   const documentData = {
-  //     documentTypeId: uploadDto.documentTypeId,
-  //     originalFilename: file.originalname,
-  //     storedFilename,
-  //     filePath,
-  //     fileSizeBytes: file.size,
-  //     mimeType: file.mimetype,
-  //     hashSha256: hash,
-  //     uploadedByUserId: userId,
-  //     uploadedIp: ip,
-  //     validationStatus: 'PENDING',
-  //   };
-
-  //   const document = this.documentRepository.create(documentData);
-  //   const savedDocument = await this.documentRepository.save(document);
-  //   return this.findById(savedDocument.id);
-  // }
-
   async upload(
     file: Express.Multer.File,
     uploadDto: UploadDocumentDto,
@@ -147,25 +66,18 @@ export class DocumentsService {
     // Generate filename
     const storedFilename = `${Date.now()}-${crypto.randomBytes(16).toString('hex')}.${fileExtension}`;
 
-    // 4. Générer un nom de fichier unique
+    // Générer un nom de fichier unique
     const timestamp = Date.now();
     const extension = file.originalname.split('.').pop();
     const filename = `${uploadDto.documentKey}-${uploadDto.entityId}-${timestamp}.${extension}`;
     const folder = `candidatures/${uploadDto.entityId}`;
 
-    // 5. Upload vers S3
+    // Upload vers S3
     const filePath = await this.s3Service.uploadFile(
       file.buffer,
       `${folder}/${filename}`,
       file.mimetype,
     );
-
-    // Upload to S3 or local storage
-    // const filePath = await this.s3Service.uploadFile(
-    //   file.buffer,
-    //   storedFilename,
-    //   file.mimetype,
-    // );
 
     // Create document record
     const documentData = {
@@ -346,50 +258,4 @@ export class DocumentsService {
 
     return await queryBuilder.orderBy('type.name', 'ASC').getMany();
   }
-
-  // async getDocumentsByEntity(
-  //   entityType: string,
-  //   entityId: number,
-  // ): Promise<Document[]> {
-  //   let documents: Document[] = [];
-
-  //   switch (entityType) {
-  //     case 'company':
-  //       documents = await this.documentRepository
-  //         .createQueryBuilder('document')
-  //         .innerJoin('company_documents', 'cd', 'cd.document_id = document.id')
-  //         .where('cd.company_id = :entityId', { entityId })
-  //         .leftJoinAndSelect('document.documentType', 'documentType')
-  //         .getMany();
-  //       break;
-  //     case 'beneficiary':
-  //       documents = await this.documentRepository
-  //         .createQueryBuilder('document')
-  //         .innerJoin(
-  //           'beneficiary_documents',
-  //           'bd',
-  //           'bd.document_id = document.id',
-  //         )
-  //         .where('bd.beneficiary_id = :entityId', { entityId })
-  //         .leftJoinAndSelect('document.documentType', 'documentType')
-  //         .getMany();
-  //       break;
-  //     case 'businessPlan':
-  //       documents = await this.documentRepository
-  //         .createQueryBuilder('document')
-  //         .innerJoin(
-  //           'business_plan_documents',
-  //           'bpd',
-  //           'bpd.document_id = document.id',
-  //         )
-  //         .where('bpd.business_plan_id = :entityId', { entityId })
-  //         .leftJoinAndSelect('document.documentType', 'documentType')
-  //         .getMany();
-  //       break;
-  //     default:
-  //       throw new BadRequestException('Invalid entity type');
-  //   }
-
-  //   return documents;
-  // }
 }

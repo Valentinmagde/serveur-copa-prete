@@ -1312,12 +1312,12 @@ async sendManualEmail(dto: {
       const personalizedMessage = this.replaceVariables(dto.message ?? '', beneficiary);
       const personalizedSubject = this.replaceVariables(dto.subject ?? '', beneficiary);
 
-      // Envoyer l'email
+      // Envoyer l'email (HTML brut, sans template wrapper)
       const result = await this.twilioService.sendEmail({
         to: beneficiary.user.email,
         subject: personalizedSubject,
-        html: this.emailTemplates.getManualEmailMessage(personalizedMessage),
-        text: personalizedMessage,
+        html: personalizedMessage,
+        text: personalizedMessage.replace(/<[^>]*>/g, ''),
       });
 
       // Sauvegarder la notification
