@@ -113,6 +113,7 @@ export class BeneficiariesService {
       fromDate,
       toDate,
       documentsCorrected,
+      hasSubmitDocumentsCorrected,
     } = filterDto;
 
     // const { skip, take } = PaginationUtil.getSkipTake(page, limit);
@@ -173,6 +174,13 @@ export class BeneficiariesService {
       queryBuilder.andWhere(
         'beneficiary.documentsCorrected = :documentsCorrected',
         { documentsCorrected },
+      );
+    }
+
+    if (hasSubmitDocumentsCorrected !== undefined) {
+      queryBuilder.andWhere(
+        'beneficiary.hasSubmitDocumentsCorrected = :hasSubmitDocumentsCorrected',
+        { hasSubmitDocumentsCorrected },
       );
     }
 
@@ -669,6 +677,9 @@ export class BeneficiariesService {
       profileCompletionPercentage: beneficiary.profileCompletionPercentage,
       profileCompletionStep: beneficiary.profileCompletionStep,
       isProfileComplete: beneficiary.isProfileComplete,
+      documentCorrectionAllowed: beneficiary.documentCorrectionAllowed ?? false,
+      documentsCorrected: beneficiary.documentsCorrected ?? false,
+      hasSubmitDocumentsCorrected: beneficiary.hasSubmitDocumentsCorrected ?? false,
       applicationCode: beneficiary.applicationCode,
       applicationSubmittedAt: beneficiary.applicationSubmittedAt,
       preSelectedComment: beneficiary.preSelectedComment,
@@ -2019,6 +2030,7 @@ export class BeneficiariesService {
       beneficiary.preSelectedAt = new Date();
       beneficiary.preSelectedByUserId = validatorId;
       beneficiary.preSelectedComment = comment;
+      beneficiary.documentsCorrected = false;
 
       await queryRunner.manager.save(beneficiary);
 
@@ -2107,6 +2119,7 @@ export class BeneficiariesService {
     beneficiary.rejectedAt = new Date();
     beneficiary.rejectedByUserId = validatorId;
     beneficiary.rejectedComment = reason;
+    beneficiary.documentsCorrected = false;
 
     await this.beneficiaryRepository.save(beneficiary);
 
@@ -2124,9 +2137,35 @@ export class BeneficiariesService {
 
     beneficiary.documentCorrectionAllowed = false;
     beneficiary.documentsCorrected = true;
+    beneficiary.hasSubmitDocumentsCorrected = true;
 
     await this.beneficiaryRepository.save(beneficiary);
 
+    return { success: true };
+  }
+
+  async updateDocumentCorrectionSettings(
+    id: number,
+    dto: {
+      documentCorrectionAllowed?: boolean;
+      documentsCorrected?: boolean;
+      hasSubmitDocumentsCorrected?: boolean;
+    },
+  ) {
+    const beneficiary = await this.beneficiaryRepository.findOne({
+      where: { id },
+    });
+
+    if (!beneficiary) throw new NotFoundException('Bénéficiaire introuvable');
+
+    if (dto.documentCorrectionAllowed !== undefined)
+      beneficiary.documentCorrectionAllowed = dto.documentCorrectionAllowed;
+    if (dto.documentsCorrected !== undefined)
+      beneficiary.documentsCorrected = dto.documentsCorrected;
+    if (dto.hasSubmitDocumentsCorrected !== undefined)
+      beneficiary.hasSubmitDocumentsCorrected = dto.hasSubmitDocumentsCorrected;
+
+    await this.beneficiaryRepository.save(beneficiary);
     return { success: true };
   }
 

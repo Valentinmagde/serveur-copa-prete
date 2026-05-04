@@ -134,4 +134,9 @@ export class BeneficiaryFilterDto {
   @IsBoolean()
   @Transform(({ value }) => value === 'true')
   documentsCorrected?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  @Transform(({ value }) => value === 'true')
+  hasSubmitDocumentsCorrected?: boolean;
 }

@@ -21,6 +21,7 @@ import { CreateBeneficiaryDto } from './dto/create-beneficiary.dto';
 import { UpdateBeneficiaryDto } from './dto/update-beneficiary.dto';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { UpdateCommentDto } from './dto/update-comment.dto';
+import { UpdateDocumentCorrectionDto } from './dto/update-document-correction.dto';
 
 @ApiTags('beneficiaries')
 @Controller('beneficiaries')
@@ -135,6 +136,17 @@ export class BeneficiariesController {
   @ApiParam({ name: 'id', type: Number })
   async submitDocumentCorrection(@Param('id', ParseIntPipe) id: number) {
     return this.beneficiariesService.submitDocumentCorrection(id);
+  }
+
+  @Patch(':id/document-correction-settings')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'COPA_MANAGER')
+  @ApiOperation({ summary: 'Gérer les paramètres de correction de documents' })
+  @ApiParam({ name: 'id', type: Number })
+  async updateDocumentCorrectionSettings(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateDocumentCorrectionDto,
+  ) {
+    return this.beneficiariesService.updateDocumentCorrectionSettings(id, dto);
   }
 
   @Patch(':id/comment')

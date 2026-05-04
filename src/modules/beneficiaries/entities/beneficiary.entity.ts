@@ -332,4 +332,7 @@ export class Beneficiary {
 
   @Column({ name: 'documents_corrected', default: false })
   documentsCorrected: boolean;
+
+  @Column({ name: 'has_submit_documents_corrected', default: false })
+  hasSubmitDocumentsCorrected: boolean;
 }
