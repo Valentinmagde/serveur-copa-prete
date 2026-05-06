@@ -117,28 +117,6 @@ export class AuthService {
       );
     }
 
-    // Vérifier le nombre de tentatives échouées récentes
-    const failedAttempts = await this.authRepository.getFailedLoginAttempts(
-      email,
-      30,
-    );
-    if (failedAttempts >= 5) {
-      if (user) {
-        await this.usersService.toggleUserBlock(user.id, true);
-      }
-      await this.authRepository.logLoginAttempt(
-        user?.id || null,
-        email,
-        false,
-        ipAddress,
-        userAgent,
-        'Account blocked due to too many failed attempts',
-      );
-      throw new UnauthorizedException(
-        'Votre compte a été bloqué suite à trop de tentatives de connexion échouées. Veuillez contacter le support.',
-      );
-    }
-
     const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
 
     if (!isPasswordValid) {
