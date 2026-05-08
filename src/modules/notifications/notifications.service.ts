@@ -662,9 +662,11 @@ export class NotificationsService {
     template?: string;
     data: {
       firstName: string;
+      civilite?: string;
       resetLink: string;
       expiresIn: string;
       supportEmail: string;
+      attachments?: Array<{ filename: string; content: Buffer | string }>;
     };
   }): Promise<any> {
     try {
@@ -673,6 +675,7 @@ export class NotificationsService {
       // Récupérer le template
       const template = this.emailTemplates.getPasswordReset({
         firstName: options.data.firstName,
+        civilite: options.data.civilite,
         resetLink: options.data.resetLink,
         expiresIn: options.data.expiresIn,
         supportEmail: options.data.supportEmail,
@@ -688,6 +691,7 @@ export class NotificationsService {
           options.template === 'password-reset'
             ? this.configService.get('SENDGRID_TEMPLATE_PASSWORD_RESET')
             : undefined,
+        attachments: options.data.attachments,
       });
 
       // Sauvegarder en base
@@ -1278,24 +1282,31 @@ async sendManualEmail(dto: {
   subject: string;
   message: string;
   useAutoTemplate?: boolean;
+  attachments?: Array<{
+    filename: string;
+    content: string;
+    mimeType?: string;
+  }>;
 }): Promise<{ total: number; succeeded: number; failed: number; details: any[] }> {
-  this.logger.log(`📧 Envoi manuel: ${dto.type} pour ${dto.beneficiaryIds.length} bénéficiaires`);
+  const uniqueIds = [...new Set(dto.beneficiaryIds)];
+
+  this.logger.log(`📧 Envoi manuel: ${dto.type} pour ${uniqueIds.length} bénéficiaires (${dto.beneficiaryIds.length} reçus, ${dto.beneficiaryIds.length - uniqueIds.length} doublons supprimés)`);
   this.logger.log(`  - Sujet: ${dto.subject}`);
-  this.logger.log(`  - Destinataires: ${dto.beneficiaryIds.join(', ')}`);
+  this.logger.log(`  - Destinataires: ${uniqueIds.join(', ')}`);
 
   const results = {
-    total: dto.beneficiaryIds.length,
+    total: uniqueIds.length,
     succeeded: 0,
     failed: 0,
     details: [] as any[],
   };
 
-  for (const id of dto.beneficiaryIds) {
+  for (const id of uniqueIds) {
     try {
       // Récupérer le bénéficiaire
       const beneficiary = await this.beneficiaryRepository.findOne({
         where: { id },
-        relations: ['user', 'status', 'company'],
+        relations: ['user', 'user.gender', 'status', 'company'],
       });
 
       if (!beneficiary || !beneficiary.user?.email) {
@@ -1312,12 +1323,20 @@ async sendManualEmail(dto: {
       const personalizedMessage = this.replaceVariables(dto.message ?? '', beneficiary);
       const personalizedSubject = this.replaceVariables(dto.subject ?? '', beneficiary);
 
+      // Préparer les pièces jointes
+      const processedAttachments = dto.attachments?.map(att => ({
+        name: att.filename,
+        content: att.content,
+        type: att.mimeType,
+      })) || [];
+
       // Envoyer l'email (HTML brut, sans template wrapper)
       const result = await this.twilioService.sendEmail({
         to: beneficiary.user.email,
         subject: personalizedSubject,
         html: personalizedMessage,
         text: personalizedMessage.replace(/<[^>]*>/g, ''),
+        attachments: processedAttachments.length > 0 ? processedAttachments : undefined,
       });
 
       // Sauvegarder la notification
@@ -1334,6 +1353,7 @@ async sendManualEmail(dto: {
           sentBy: 'MANUAL',
           originalSubject: dto.subject,
           originalMessage: dto.message,
+          attachments: dto.attachments ? dto.attachments.map(att => ({ filename: att.filename, size: att.content.length })) : undefined,
         },
         isSent: result?.messageId ? true : false,
         sentAt: new Date(),
@@ -1437,15 +1457,27 @@ private replaceVariables(text: string | undefined | null, beneficiary: any): str
   const firstName = beneficiary.user?.firstName || '';
   const lastName = beneficiary.user?.lastName || '';
 
+  // Déterminer la civilité basée sur le genre
+  let civilite = '';
+  if (beneficiary.user?.gender?.code === 'M') {
+    civilite = 'Monsieur';
+  } else if (beneficiary.user?.gender?.code === 'F') {
+    civilite = 'Madame';
+  } else {
+    civilite = 'Cher/Chère candidat(e)'; // Valeur par défaut si genre inconnu
+  }
+
   return text
     .replace(/{{prenom}}/g, firstName)
     .replace(/{{nom}}/g, lastName)
+    .replace(/{{civilite}}/g, civilite)
     .replace(/{{fullName}}/g, `${firstName} ${lastName}`.trim())
     .replace(/{{code_candidature}}/g, beneficiary.applicationCode || '')
     .replace(/{{entreprise}}/g, beneficiary.company?.companyName || '')
     .replace(/{{email}}/g, beneficiary.user?.email || '')
     .replace(/{{telephone}}/g, beneficiary.user?.phoneNumber || '')
-    .replace(/{{statut}}/g, beneficiary.status?.code || '');
+    .replace(/{{statut}}/g, beneficiary.status?.code || '')
+    .replace(/{{commentaire_rejet}}/g, beneficiary.rejectedComment || this.configService.get('DEFAULT_REJECTION_COMMENT') || '');
 }
 
   async getPreselectRejectHistory(

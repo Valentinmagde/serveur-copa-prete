@@ -68,6 +68,7 @@ export class TwilioService {
             htmlContent: options.html,
             textContent: options.text,
             params: options.templateData,
+            attachments: options.attachments,
             ...(typeof options.templateId === 'number' && {
               templateId: options.templateId,
             }),
@@ -82,6 +83,7 @@ export class TwilioService {
             html: options.html,
             text: options.text,
             templateData: options.templateData,
+            attachments: options.attachments,
           });
           break;
 

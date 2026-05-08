@@ -1041,6 +1041,7 @@ export class AuthService {
           template: 'password-reset',
           data: {
             firstName: user.firstName,
+            civilite: user.gender?.label,
             resetLink,
             expiresIn: '30 minutes',
             supportEmail:

@@ -23,6 +23,7 @@ export interface TemplateData {
   firstName?: string;
   lastName?: string;
   fullName?: string;
+  civilite?: string; // M., Mme, Mlle, Dr, etc.
 
   // Email confirmation
   activationLink?: string;
@@ -160,7 +161,7 @@ export class EmailTemplatesService {
           </div>
           
           <div class="content">
-            <p>Bonjour <strong>${data.firstName || ''}</strong>,</p>
+            <p>Bonjour ${data.civilite ? data.civilite + ' ' : ''}<strong>${data.firstName || ''}</strong>,</p>
             
             <p>Nous avons reçu une demande de réinitialisation de mot de passe pour votre compte COPA.</p>
             
@@ -198,7 +199,7 @@ export class EmailTemplatesService {
     const text = `
       RÉINITIALISATION DE VOTRE MOT DE PASSE - COPA
 
-      Bonjour ${data.firstName || ''},
+      Bonjour ${data.civilite ? data.civilite + ' ' : ''}${data.firstName || ''},
 
       Nous avons reçu une demande de réinitialisation de mot de passe pour votre compte COPA.
 

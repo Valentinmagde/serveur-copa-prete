@@ -252,6 +252,17 @@ export class NotificationsController {
         subject: { type: 'string' },
         message: { type: 'string' },
         useAutoTemplate: { type: 'boolean', default: false },
+        attachments: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              filename: { type: 'string' },
+              content: { type: 'string' },
+              mimeType: { type: 'string' },
+            },
+          },
+        },
       },
       required: ['type', 'beneficiaryIds', 'message'],
     },
@@ -263,6 +274,11 @@ export class NotificationsController {
     subject?: string;
     message: string;
     useAutoTemplate?: boolean;
+    attachments?: Array<{
+      filename: string;
+      content: string;
+      mimeType?: string;
+    }>;
   }) {
     const channel = dto.channel ?? 'EMAIL';
 
