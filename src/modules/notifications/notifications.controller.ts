@@ -24,6 +24,7 @@ import {
   ApiBody,
 } from '@nestjs/swagger';
 import { NotificationsService } from './notifications.service';
+import { ContactsService } from '../contacts/contacts.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -37,12 +38,24 @@ import { NotificationFilterDto } from './dto/notification-filter.dto';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth()
 export class NotificationsController {
-  constructor(private readonly notificationsService: NotificationsService) { }
+  constructor(
+    private readonly notificationsService: NotificationsService,
+    private readonly contactsService: ContactsService,
+  ) { }
 
   // ==================== ENDPOINTS PUBLICS ====================
   @Post('contact')
   @Public()
   async submitContact(@Body() contactData: any, @Req() req: any) {
+    await this.contactsService.create({
+      anonymous: !!contactData.anonymous,
+      name: contactData.name,
+      email: contactData.email,
+      phone: contactData.phone,
+      subject: contactData.subject,
+      message: contactData.message,
+    });
+
     const result = await this.notificationsService.sendContactNotification(
       {
         name: contactData.name,
@@ -87,16 +100,14 @@ export class NotificationsController {
 
   // ==================== ENDPOINTS UTILISATEUR ====================
 
-  //   @Get('my')
-  //   @ApiOperation({ summary: 'Récupérer mes notifications' })
-  //   @ApiResponse({ status: 200, type: [NotificationResponseDto] })
-  //   async getMyNotifications(
-  //     @CurrentUser() user,
-  //     @Query() filter: NotificationFilterDto,
-  //   ) {
-  //     filter.userId = user.id.toString();
-  //     return this.notificationsService.getUserNotifications(filter);
-  //   }
+  @Get('my')
+  @ApiOperation({ summary: 'Récupérer mes notifications' })
+  async getMyNotifications(
+    @CurrentUser() user,
+    @Query() filter: NotificationFilterDto,
+  ) {
+    return this.notificationsService.getUserNotifications(user.id, filter);
+  }
 
   @Get('my/unread/count')
   @ApiOperation({ summary: 'Compter mes notifications non lues' })

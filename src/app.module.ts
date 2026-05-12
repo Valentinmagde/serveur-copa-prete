@@ -19,6 +19,7 @@ import { EvaluationsModule } from './modules/evaluations/evaluations.module';
 import { TrainingModule } from './modules/training/training.module';
 import { SubventionsModule } from './modules/subventions/subventions.module';
 import { ComplaintsModule } from './modules/complaints/complaints.module';
+import { ContactsModule } from './modules/contacts/contacts.module';
 import { MonitoringModule } from './modules/monitoring/monitoring.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { DocumentsModule } from './modules/documents/documents.module';
@@ -90,6 +91,7 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
     TrainingModule,
     SubventionsModule,
     ComplaintsModule,
+    ContactsModule,
     MonitoringModule,
     NotificationsModule,
     DocumentsModule,

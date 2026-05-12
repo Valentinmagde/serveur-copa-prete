@@ -15,6 +15,7 @@ import { UserRole } from '../users/entities/user-role.entity';
 import { UserConsent } from '../users/entities/user-consent.entity';
 import { Role } from '../reference/entities/role.entity';
 import { Beneficiary } from '../beneficiaries/entities/beneficiary.entity';
+import { ContactsModule } from '../contacts/contacts.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { Beneficiary } from '../beneficiaries/entities/beneficiary.entity';
     // UsersModule,
     forwardRef(() => UsersModule),
     ConfigModule,
+    ContactsModule,
   ],
   controllers: [NotificationsController],
   providers: [
