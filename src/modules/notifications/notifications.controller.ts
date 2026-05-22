@@ -284,6 +284,7 @@ export class NotificationsController {
     beneficiaryIds: number[];
     subject?: string;
     message: string;
+    lang?: string;
     useAutoTemplate?: boolean;
     attachments?: Array<{
       filename: string;

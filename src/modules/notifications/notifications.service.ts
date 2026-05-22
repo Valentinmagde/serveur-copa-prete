@@ -1281,6 +1281,7 @@ async sendManualEmail(dto: {
   beneficiaryIds: number[];
   subject: string;
   message: string;
+  lang?: string;
   useAutoTemplate?: boolean;
   attachments?: Array<{
     filename: string;
@@ -1292,6 +1293,7 @@ async sendManualEmail(dto: {
 
   this.logger.log(`📧 Envoi manuel: ${dto.type} pour ${uniqueIds.length} bénéficiaires (${dto.beneficiaryIds.length} reçus, ${dto.beneficiaryIds.length - uniqueIds.length} doublons supprimés)`);
   this.logger.log(`  - Sujet: ${dto.subject}`);
+  this.logger.log(`  - Langue: ${dto.lang ?? 'non définie (fallback fr)'}`);
   this.logger.log(`  - Destinataires: ${uniqueIds.join(', ')}`);
 
   const results = {
@@ -1320,8 +1322,8 @@ async sendManualEmail(dto: {
         continue;
       }
 
-      const personalizedMessage = this.replaceVariables(dto.message ?? '', beneficiary);
-      const personalizedSubject = this.replaceVariables(dto.subject ?? '', beneficiary);
+      const personalizedMessage = this.replaceVariables(dto.message ?? '', beneficiary, dto.lang);
+      const personalizedSubject = this.replaceVariables(dto.subject ?? '', beneficiary, dto.lang);
 
       // Préparer les pièces jointes
       const processedAttachments = dto.attachments?.map(att => ({
@@ -1452,19 +1454,21 @@ async sendManualSms(dto: {
 /**
  * Remplace les variables dans le texte
  */
-private replaceVariables(text: string | undefined | null, beneficiary: any): string {
+private replaceVariables(text: string | undefined | null, beneficiary: any, lang = 'fr'): string {
   if (!text) return '';
   const firstName = beneficiary.user?.firstName || '';
   const lastName = beneficiary.user?.lastName || '';
 
-  // Déterminer la civilité basée sur le genre
+  const genderCode = beneficiary.user?.gender?.code;
   let civilite = '';
-  if (beneficiary.user?.gender?.code === 'M') {
-    civilite = 'Monsieur';
-  } else if (beneficiary.user?.gender?.code === 'F') {
-    civilite = 'Madame';
+  if (lang === 'rn') {
+    if (genderCode === 'M') civilite = 'Mupfasoni';
+    else if (genderCode === 'F') civilite = 'Mushingantahe';
+    else civilite = 'Mukandida';
   } else {
-    civilite = 'Cher/Chère candidat(e)'; // Valeur par défaut si genre inconnu
+    if (genderCode === 'M') civilite = 'Monsieur';
+    else if (genderCode === 'F') civilite = 'Madame';
+    else civilite = 'Cher/Chère candidat(e)';
   }
 
   return text

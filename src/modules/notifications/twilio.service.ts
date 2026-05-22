@@ -100,15 +100,7 @@ export class TwilioService {
       return result;
     } catch (error) {
       this.logger.error(`Failed to send email to ${options.to}:`, error);
-
-      // Fallback vers simulation en cas d'erreur
-      this.logger.warn('Falling back to simulated email');
-      return {
-        simulated: true,
-        to: options.to,
-        subject: options.subject,
-        error: error.message,
-      };
+      throw error;
     }
   }
 
