@@ -75,6 +75,11 @@ export class CopaEditionsService {
     return edition;
   }
 
+  async findPastEditions(): Promise<any[]> {
+    const all = await this.findAll();
+    return all.filter((e) => !e.isActive);
+  }
+
   async findByYear(year: number): Promise<CopaEdition[]> {
     return this.copaEditionRepository.find({
       where: { year },

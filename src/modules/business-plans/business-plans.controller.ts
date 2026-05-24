@@ -34,10 +34,22 @@ export class BusinessPlansController {
     return this.businessPlansService.findAll(filterDto);
   }
 
+  @Get('my')
+  @Roles('BENEFICIARY')
+  async findMy(@CurrentUser() user) {
+    return this.businessPlansService.findMyBusinessPlan(user.id);
+  }
+
   @Get(':id')
   @Roles('SUPER_ADMIN', 'ADMIN', 'COPA_MANAGER', 'EVALUATOR', 'BENEFICIARY')
   async findOne(@Param('id') id: string) {
     return this.businessPlansService.findById(+id);
+  }
+
+  @Post('initialize')
+  @Roles('BENEFICIARY')
+  async initialize(@CurrentUser() user) {
+    return this.businessPlansService.initializeMyDraft(user.id);
   }
 
   @Post()
@@ -70,6 +82,18 @@ export class BusinessPlansController {
   @Roles('BENEFICIARY', 'EVALUATOR', 'ADMIN')
   async getSections(@Param('id') id: string) {
     return this.businessPlansService.getSections(+id);
+  }
+
+  @Get(':id/document')
+  @Roles('BENEFICIARY', 'EVALUATOR', 'ADMIN', 'COPA_MANAGER', 'SUPER_ADMIN')
+  async getDocument(@Param('id') id: string, @CurrentUser() user) {
+    const isAdmin = ['SUPER_ADMIN', 'ADMIN', 'COPA_MANAGER', 'EVALUATOR'].includes(
+      user.role,
+    );
+    return this.businessPlansService.getBusinessPlanDocument(
+      +id,
+      isAdmin ? undefined : user.id,
+    );
   }
 
   @Get(':id/evaluation-summary')

@@ -16,6 +16,7 @@ import {
   PaginationUtil,
   PaginatedResult,
 } from '../../common/utils/pagination.util';
+import { BeneficiariesService } from '../beneficiaries/beneficiaries.service';
 
 @Injectable()
 export class DocumentsService {
@@ -25,6 +26,7 @@ export class DocumentsService {
     @InjectRepository(DocumentType)
     private readonly documentTypeRepository: Repository<DocumentType>,
     private readonly s3Service: S3Service,
+    private readonly beneficiariesService: BeneficiariesService,
   ) {}
 
   async upload(
@@ -63,19 +65,22 @@ export class DocumentsService {
     // Generate hash
     const hash = crypto.createHash('sha256').update(file.buffer).digest('hex');
 
-    // Generate filename
-    const storedFilename = `${Date.now()}-${crypto.randomBytes(16).toString('hex')}.${fileExtension}`;
+    let folder: string;
+    if (uploadDto.entityType === 'businessPlan') {
+      const beneficiary = await this.beneficiariesService.findByUserId(userId);
+      folder = `business-plan/${beneficiary.id}`;
+    } else {
+      folder = `candidatures/${uploadDto.entityId}`;
+    }
 
-    // Générer un nom de fichier unique
     const timestamp = Date.now();
     const extension = file.originalname.split('.').pop();
-    const filename = `${uploadDto.documentKey}-${uploadDto.entityId}-${timestamp}.${extension}`;
-    const folder = `candidatures/${uploadDto.entityId}`;
+    const storedFilename = `${folder}/${uploadDto.documentKey}-${uploadDto.entityId}-${timestamp}.${extension}`;
 
     // Upload vers S3
     const filePath = await this.s3Service.uploadFile(
       file.buffer,
-      `${folder}/${filename}`,
+      storedFilename,
       file.mimetype,
     );
 
@@ -183,9 +188,11 @@ export class DocumentsService {
   async download(id: number): Promise<StreamableFile> {
     const document = await this.findById(id);
 
-    const fileStream = await this.s3Service.downloadFile(
-      document.storedFilename,
-    );
+    const key = document.filePath?.startsWith('local://')
+      ? document.filePath
+      : document.storedFilename; // storedFilename = full S3 key (e.g. business-plan/42/filename.pdf)
+
+    const fileStream = await this.s3Service.downloadFile(key);
 
     return new StreamableFile(fileStream, {
       disposition: `attachment; filename="${document.originalFilename}"`,
@@ -228,7 +235,10 @@ export class DocumentsService {
 
     // Delete from storage
     try {
-      await this.s3Service.deleteFile(document.storedFilename);
+      const key = document.filePath?.startsWith('local://')
+        ? document.filePath
+        : document.storedFilename;
+      await this.s3Service.deleteFile(key);
     } catch (error) {
       console.error('Error deleting file from storage:', error);
     }

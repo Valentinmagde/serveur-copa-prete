@@ -1419,7 +1419,7 @@ export class AuthService {
       user.passwordHash,
     );
     if (!isPasswordValid) {
-      throw new UnauthorizedException('Mot de passe actuel incorrect');
+      throw new BadRequestException('Mot de passe actuel incorrect');
     }
 
     // Vérifier que le nouveau mot de passe est différent

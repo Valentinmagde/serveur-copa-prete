@@ -22,6 +22,7 @@ export class UploadDocumentDto {
       'commerceRegister',
       'bankStatements',
       'communalAttestation',
+      'businessPlan',
     ],
   })
   @IsIn([
@@ -31,6 +32,7 @@ export class UploadDocumentDto {
     'commerceRegister',
     'bankStatements',
     'communalAttestation',
+    'businessPlan',
   ])
   documentKey: string;
 

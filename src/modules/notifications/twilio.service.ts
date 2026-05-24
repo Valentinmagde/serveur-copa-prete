@@ -99,7 +99,6 @@ export class TwilioService {
       `);
       return result;
     } catch (error) {
-      this.logger.error(`Failed to send email to ${options.to}:`, error);
       throw error;
     }
   }

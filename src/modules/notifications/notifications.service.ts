@@ -490,6 +490,59 @@ export class NotificationsService {
   }
 
   /**
+   * Envoie l'accusé de réception après soumission d'un plan d'affaires
+   */
+  async sendBusinessPlanSubmittedEmail(data: {
+    userId: number;
+    email: string;
+    firstName: string;
+    lastName: string;
+    dossierNumero: string;
+    dateSoumission: string;
+    secteur?: string;
+    montantDemande?: string;
+    dateResultats?: string;
+  }): Promise<any> {
+    try {
+      this.logger.log(`Envoi accusé de réception plan d'affaires à ${data.email}`);
+
+      const template = this.emailTemplates.getPlanAffairesSoumis({
+        firstName: data.firstName,
+        lastName: data.lastName,
+        dossierNumero: data.dossierNumero,
+        dateSoumission: data.dateSoumission,
+        secteur: data.secteur,
+        montantDemande: data.montantDemande,
+        dateResultats: data.dateResultats,
+      });
+
+      const result = await this.twilioService.sendEmail({
+        to: data.email,
+        subject: template.subject,
+        html: template.html,
+        text: template.text,
+      });
+
+      const notification = this.notificationRepository.create({
+        recipientUserId: data.userId,
+        channel: NotificationChannel.EMAIL,
+        notificationType: NotificationType.CONFIRMATION,
+        title: template.subject,
+        content: template.text,
+        context: { emailType: 'business_plan_submitted', messageId: result?.messageId },
+        isSent: true,
+        sentAt: new Date(),
+      });
+      await this.notificationRepository.save(notification);
+
+      return { success: true, messageId: result?.messageId };
+    } catch (error) {
+      this.logger.error(`Erreur accusé de réception plan d'affaires: ${error.message}`);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
    * Envoie un email de confirmation d'enregistrement de profil entrepreneur
    * @param options - Les options pour l'envoi de l'email
    * @returns Promise avec le résultat de l'envoi

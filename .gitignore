@@ -45,6 +45,9 @@ lerna-debug.log*
 .env.production.local
 .env.local
 
+# Local file uploads (dev storage fallback)
+/uploads
+
 # temp directory
 .temp
 .tmp

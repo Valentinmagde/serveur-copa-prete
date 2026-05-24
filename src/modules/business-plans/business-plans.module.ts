@@ -8,6 +8,8 @@ import { BeneficiariesModule } from '../beneficiaries/beneficiaries.module';
 import { ReferenceModule } from '../reference/reference.module';
 import { Status } from '../reference/entities/status.entity';
 import { BusinessPlanSectionType } from '../reference/entities/business-plan-section-type.entity';
+import { DocumentsModule } from '../documents/documents.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
@@ -19,6 +21,8 @@ import { BusinessPlanSectionType } from '../reference/entities/business-plan-sec
     ]),
     BeneficiariesModule,
     ReferenceModule,
+    DocumentsModule,
+    NotificationsModule,
   ],
   controllers: [BusinessPlansController],
   providers: [BusinessPlansService],

@@ -31,6 +31,12 @@ export class CopaEditionsController {
         return this.editionsService.findAll();
     }
 
+    @Get('past')
+    @ApiOperation({ summary: 'Éditions précédentes (publique)' })
+    async findPast() {
+        return this.editionsService.findPastEditions();
+    }
+
     @Get('active')
     @ApiOperation({ summary: 'Récupérer l\'édition active' })
     async findActive() {
