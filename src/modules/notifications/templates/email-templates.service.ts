@@ -713,7 +713,7 @@ export class EmailTemplatesService {
   }
 
   /**
-   * Template: Plan d'affaires soumis
+   * Template: Accusé de réception — Plan d'affaires soumis
    */
   getPlanAffairesSoumis(data: TemplateData): {
     subject: string;
@@ -727,58 +727,51 @@ export class EmailTemplatesService {
       <html>
       <head>
         <meta charset="utf-8">
-        <title>Confirmation de soumission</title>
+        <title>Accusé de réception – Plan d'affaires</title>
         <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
           .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background-color: #28a745; color: white; padding: 20px; text-align: center; }
-          .content { padding: 30px 20px; background-color: #f9f9f9; }
-          .info-box { 
-            background-color: #e9ecef; 
-            padding: 20px; 
-            border-radius: 5px;
+          .header { background-color: #1a5c35; color: white; padding: 24px 20px; text-align: center; }
+          .header h1 { margin: 0 0 4px; font-size: 22px; letter-spacing: 1px; }
+          .header p { margin: 0; font-size: 13px; opacity: .85; }
+          .content { padding: 28px 24px; background-color: #f9f9f9; }
+          .receipt-box {
+            background: #fff;
+            border: 2px solid #1a5c35;
+            border-radius: 6px;
+            padding: 20px 24px;
             margin: 20px 0;
           }
-          .info-row { margin-bottom: 10px; }
-          .label { font-weight: bold; display: inline-block; width: 150px; }
-          .button {
-            display: inline-block;
-            padding: 12px 24px;
-            background-color: #28a745;
-            color: white !important;
-            text-decoration: none;
-            border-radius: 5px;
-          }
+          .receipt-box h3 { margin: 0 0 14px; color: #1a5c35; font-size: 15px; border-bottom: 1px solid #ddd; padding-bottom: 8px; }
+          .info-row { display: flex; margin-bottom: 8px; font-size: 14px; }
+          .info-label { font-weight: bold; min-width: 200px; color: #555; }
+          .footer { text-align: center; padding: 16px; font-size: 12px; color: #888; border-top: 1px solid #eee; margin-top: 20px; }
         </style>
       </head>
       <body>
         <div class="container">
           <div class="header">
-            <h1>Soumission confirmée</h1>
+            <h1>ACCUSÉ DE RÉCEPTION</h1>
+            <p>Concours de Plans d'Affaires – COPA Nyunganira</p>
           </div>
-          
+
           <div class="content">
-            <p>Bonjour <strong>${data.firstName || ''}</strong>,</p>
-            
-            <p>Nous vous confirmons la réception de votre plan d'affaires.</p>
-            
-            <div class="info-box">
-              <div class="info-row"><span class="label">N° de dossier :</span> ${data.dossierNumero || 'N/A'}</div>
-              <div class="info-row"><span class="label">Date de soumission :</span> ${data.dateSoumission || new Date().toLocaleDateString('fr-FR')}</div>
-              <div class="info-row"><span class="label">Secteur :</span> ${data.secteur || 'Non spécifié'}</div>
-              <div class="info-row"><span class="label">Montant demandé :</span> ${data.montantDemande || 'N/A'} BIF</div>
-              <div class="info-row"><span class="label">Date des résultats :</span> ${data.dateResultats || 'À déterminer'}</div>
-            </div>
-            
-            <p>Vous pouvez suivre l'évolution de votre dossier à tout moment :</p>
-            
-            <div style="text-align: center;">
-              <a href="${this.baseUrl}/suivi/${data.dossierNumero}" class="button">Suivre mon dossier</a>
+            <p>Bonjour <strong>${data.firstName || ''} ${data.lastName || ''}</strong>,</p>
+            <p>Nous accusons réception de votre plan d'affaires déposé en ligne sur la plateforme du <strong>COPA Nyunganira</strong>.</p>
+
+            <div class="receipt-box">
+              <h3>RÉCAPITULATIF</h3>
+              <div class="info-row"><span class="info-label">N° de dossier :</span> <strong>${data.dossierNumero || 'N/A'}</strong></div>
+              <div class="info-row"><span class="info-label">Date/heure de dépôt :</span> ${data.dateSoumission || new Date().toLocaleString('fr-FR')}</div>
+              <div class="info-row"><span class="info-label">Secteur :</span> ${data.secteur || 'Non renseigné'}</div>
+              ${data.montantDemande ? `<div class="info-row"><span class="info-label">Montant demandé :</span> ${data.montantDemande} BIF</div>` : ''}
+              ${data.dateResultats ? `<div class="info-row"><span class="info-label">Date estimée des résultats :</span> ${data.dateResultats}</div>` : ''}
             </div>
           </div>
-          
+
           <div class="footer">
-            <p>© ${new Date().getFullYear()} COPA - Concours de Plans d'Affaires du Burundi</p>
+            <p>© ${new Date().getFullYear()} COPA Nyunganira</p>
+            <p>Cet email est un accusé de réception automatique. Merci de ne pas y répondre.</p>
           </div>
         </div>
       </body>
@@ -786,20 +779,19 @@ export class EmailTemplatesService {
     `;
 
     const text = `
-      Votre plan d'affaires a bien été soumis – Dossier N°${data.dossierNumero || 'XXXXX'}
+Votre plan d'affaires a bien été soumis – Dossier N°${data.dossierNumero || 'XXXXX'}
 
-      Bonjour ${data.firstName || ''},
+Bonjour ${data.firstName || ''} ${data.lastName || ''},
 
-      Nous vous confirmons la réception de votre plan d'affaires.
+Nous accusons réception de votre plan d'affaires déposé en ligne sur la plateforme du COPA Nyunganira.
 
-      RÉCAPITULATIF :
-      N° de dossier : ${data.dossierNumero || 'N/A'}
-      Date de soumission : ${data.dateSoumission || new Date().toLocaleDateString('fr-FR')}
-      Secteur : ${data.secteur || 'Non spécifié'}
-      Montant demandé : ${data.montantDemande || 'N/A'} BIF
-      Date des résultats : ${data.dateResultats || 'À déterminer'}
+RÉCAPITULATIF :
+  N° de dossier         : ${data.dossierNumero || 'N/A'}
+  Date/heure de dépôt  : ${data.dateSoumission || new Date().toLocaleString('fr-FR')}
+  Secteur               : ${data.secteur || 'Non renseigné'}${data.montantDemande ? `\n  Montant demandé       : ${data.montantDemande} BIF` : ''}${data.dateResultats ? `\n  Résultats attendus    : ${data.dateResultats}` : ''}
 
-      Suivez votre dossier : ${this.baseUrl}/suivi/${data.dossierNumero}
+© ${new Date().getFullYear()} COPA Nyunganira
+Cet email est un accusé de réception automatique. Merci de ne pas y répondre.
     `;
 
     return { subject, html, text };

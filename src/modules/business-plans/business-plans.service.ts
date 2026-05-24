@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Logger,
   NotFoundException,
   BadRequestException,
   ForbiddenException,
@@ -23,9 +24,14 @@ import { BeneficiariesService } from '../beneficiaries/beneficiaries.service';
 import { CopaEditionsService } from '../reference/copa-editions.service';
 import { Status } from '../reference/entities/status.entity';
 import { BusinessPlanSectionType } from '../reference/entities/business-plan-section-type.entity';
+import { DocumentsService } from '../documents/documents.service';
+import { Document } from '../documents/entities/document.entity';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class BusinessPlansService {
+  private readonly logger = new Logger(BusinessPlansService.name);
+
   constructor(
     @InjectRepository(BusinessPlan)
     private readonly businessPlanRepository: Repository<BusinessPlan>,
@@ -38,6 +44,8 @@ export class BusinessPlansService {
     private readonly beneficiariesService: BeneficiariesService,
     private readonly copaEditionsService: CopaEditionsService,
     private readonly dataSource: DataSource,
+    private readonly documentsService: DocumentsService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async create(
@@ -198,6 +206,65 @@ export class BusinessPlansService {
     return PaginationUtil.paginate(plans, total, { page, limit });
   }
 
+  async findMyBusinessPlan(userId: number): Promise<BusinessPlan | null> {
+    const beneficiary = await this.beneficiariesService.findByUserId(userId);
+
+    return this.businessPlanRepository.findOne({
+      where: { beneficiaryId: beneficiary.id },
+      relations: ['status', 'copaEdition'],
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  async initializeMyDraft(userId: number): Promise<BusinessPlan> {
+    const beneficiary = await this.beneficiariesService.findByUserId(userId);
+
+    const existing = await this.businessPlanRepository.findOne({
+      where: { beneficiaryId: beneficiary.id },
+      relations: ['status', 'copaEdition'],
+      order: { createdAt: 'DESC' },
+    });
+    if (existing) return this.findById(existing.id);
+
+    const activeEditions = await this.copaEditionsService.findActive();
+    if (!activeEditions.length) {
+      throw new BadRequestException(
+        "Aucune édition COPA active. L'upload n'est pas disponible pour le moment.",
+      );
+    }
+
+    const draftStatus = await this.statusRepository.findOne({
+      where: { code: 'DRAFT', entityType: 'BUSINESS_PLAN' },
+    });
+
+    const plan = this.businessPlanRepository.create({
+      referenceNumber: this.generateReferenceNumber(beneficiary),
+      copaEditionId: activeEditions[0].id,
+      beneficiaryId: beneficiary.id,
+      projectTitle: beneficiary.projectTitle || "Plan d'affaires",
+      projectDescription: beneficiary.projectObjective || null,
+      statusId: draftStatus?.id,
+      lastModifiedAt: new Date(),
+    });
+
+    const saved = await this.businessPlanRepository.save(plan);
+    return this.findById(saved.id);
+  }
+
+  private generateReferenceNumber(beneficiary: any): string {
+    const code = (beneficiary.applicationCode ?? '').toString().padStart(5, '0');
+    const isRefugee = beneficiary.category === 'REFUGEE';
+    const isFemale = beneficiary.user?.gender?.code?.toUpperCase() === 'F';
+
+    let suffix: string;
+    if (isRefugee && isFemale) suffix = 'CRF';
+    else if (isRefugee && !isFemale) suffix = 'CRH';
+    else if (!isRefugee && isFemale) suffix = 'COF';
+    else suffix = 'COH';
+
+    return `${code}${suffix}`;
+  }
+
   async findById(id: number, relations: string[] = []): Promise<BusinessPlan> {
     const businessPlan = await this.businessPlanRepository.findOne({
       where: { id },
@@ -264,9 +331,20 @@ export class BusinessPlansService {
       );
     }
 
-    // Check if already submitted
     if (businessPlan.submittedAt) {
-      throw new BadRequestException('Business plan already submitted');
+      throw new BadRequestException('Ce plan d\'affaires a déjà été soumis');
+    }
+
+    // Check if business plan document has been uploaded
+    const documents = await this.documentsService.getDocumentsByEntity(
+      id,
+      'businessPlan',
+      'businessPlan',
+    );
+    if (!documents || documents.length === 0) {
+      throw new BadRequestException(
+        'Vous devez uploader le document de votre plan d\'affaire avant de soumettre',
+      );
     }
 
     // Get submitted status
@@ -274,15 +352,45 @@ export class BusinessPlansService {
       where: { code: 'SUBMITTED', entityType: 'BUSINESS_PLAN' },
     });
 
-    if (submittedStatus) {
-      businessPlan.statusId = submittedStatus.id;
+    if (!submittedStatus) {
+      throw new BadRequestException('Statut SUBMITTED introuvable en base de données');
     }
-    businessPlan.submittedAt = new Date();
-    businessPlan.submittedByUserId = userId;
-    businessPlan.isFinalVersion = true;
 
-    const updated = await this.businessPlanRepository.save(businessPlan);
-    return this.findById(updated.id);
+    await this.businessPlanRepository.update(id, {
+      statusId: submittedStatus.id,
+      submittedAt: new Date(),
+      submittedByUserId: userId,
+      isFinalVersion: true,
+    });
+
+    const result = await this.findById(id);
+
+    // Envoi de l'accusé de réception par email (non bloquant)
+    const user = businessPlan.beneficiary?.user;
+    if (user?.email) {
+      const montant = businessPlan.requestedFundingAmount
+        ? new Intl.NumberFormat('fr-BI').format(businessPlan.requestedFundingAmount)
+        : undefined;
+      const dateResultats = result.copaEdition?.resultsPublicationDate
+        ? new Date(result.copaEdition.resultsPublicationDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+        : undefined;
+
+      this.notificationsService.sendBusinessPlanSubmittedEmail({
+        userId: userId,
+        email: user.email,
+        firstName: user.firstName || '',
+        lastName: user.lastName || '',
+        dossierNumero: businessPlan.referenceNumber,
+        dateSoumission: new Date().toLocaleString('fr-FR'),
+        secteur: businessPlan.businessSector?.nameFr,
+        montantDemande: montant,
+        dateResultats,
+      }).catch((err) =>
+        this.logger?.error?.(`Échec envoi accusé de réception: ${err.message}`),
+      );
+    }
+
+    return result;
   }
 
   async getSections(id: number): Promise<BusinessPlanSection[]> {
@@ -293,6 +401,38 @@ export class BusinessPlansService {
       relations: ['sectionType'],
       order: { sectionOrder: 'ASC' },
     });
+  }
+
+  async getBusinessPlanDocument(
+    id: number,
+    userId?: number,
+  ): Promise<Document | null> {
+    const businessPlan = await this.findById(id);
+
+    if (userId) {
+      const beneficiary = await this.beneficiariesService.findByUserId(userId);
+      if (businessPlan.beneficiaryId !== beneficiary.id) {
+        throw new ForbiddenException(
+          'You can only access your own business plan documents',
+        );
+      }
+    }
+
+    const documents = await this.documentsService.getDocumentsByEntity(
+      id,
+      'businessPlan',
+      'businessPlan',
+    );
+
+    if (!documents || documents.length === 0) {
+      return null;
+    }
+
+    // Return the most recent document
+    return documents.sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    )[0];
   }
 
   async getEvaluationSummary(id: number): Promise<any> {
