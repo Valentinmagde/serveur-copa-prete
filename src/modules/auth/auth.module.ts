@@ -17,6 +17,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
 import { User } from '../users/entities/user.entity';
 import { Beneficiary } from '../beneficiaries/entities/beneficiary.entity';
 import { Company } from '../companies/entities/company.entity';
+import { Evaluator } from '../evaluations/entities/evaluator.entity';
 import { RedisModule } from '@nestjs-modules/ioredis';
 
 @Module({
@@ -51,6 +52,7 @@ import { RedisModule } from '@nestjs-modules/ioredis';
       LoginAttempt,
       Beneficiary,
       Company,
+      Evaluator,
     ]),
   ],
   controllers: [AuthController],

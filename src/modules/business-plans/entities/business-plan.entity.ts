@@ -137,6 +137,9 @@ export class BusinessPlan {
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 
+  @Column({ default: false, name: 'is_anonymized' })
+  isAnonymized: boolean;
+
   @Column({ default: 'SYNCED', name: 'sync_status' })
   syncStatus: string;
 

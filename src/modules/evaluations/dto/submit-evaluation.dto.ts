@@ -1,51 +1,48 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsBoolean, IsIn, IsNotEmpty, IsNumber, IsOptional, IsString, Max, Min } from 'class-validator';
+import { IsBoolean, IsIn, IsNotEmpty, IsNumber, IsObject, IsOptional, IsString, Max, Min } from 'class-validator';
 
 export class SubmitEvaluationDto {
   @ApiProperty()
   @IsNotEmpty() @IsNumber()
   businessPlanId: number;
 
-  @ApiProperty({ minimum: 0, maximum: 25 })
-  @IsNumber() @Min(0) @Max(25)
-  economicViabilityScore: number;
+  // A. L'objectif et l'idée de projet
+  @ApiProperty({ minimum: 0, maximum: 5 }) @IsNumber() @Min(0) @Max(5) criterion1Score: number;
+  @ApiProperty({ minimum: 0, maximum: 5 }) @IsNumber() @Min(0) @Max(5) criterion2Score: number;
+  @ApiProperty({ minimum: 0, maximum: 5 }) @IsNumber() @Min(0) @Max(5) criterion3Score: number;
 
-  @ApiProperty({ minimum: 0, maximum: 20 })
-  @IsNumber() @Min(0) @Max(20)
-  innovationScore: number;
+  // B. Stratégie et plan marketing
+  @ApiProperty({ minimum: 0, maximum: 5 }) @IsNumber() @Min(0) @Max(5) criterion4Score: number;
+  @ApiProperty({ minimum: 0, maximum: 5 }) @IsNumber() @Min(0) @Max(5) criterion5Score: number;
+  @ApiProperty({ minimum: 0, maximum: 5 }) @IsNumber() @Min(0) @Max(5) criterion6Score: number;
+  @ApiProperty({ minimum: 0, maximum: 5 }) @IsNumber() @Min(0) @Max(5) criterion7Score: number;
 
-  @ApiProperty({ minimum: 0, maximum: 15 })
-  @IsNumber() @Min(0) @Max(15)
-  qualityScore: number;
+  // C. Moyens techniques
+  @ApiProperty({ minimum: 0, maximum: 5 }) @IsNumber() @Min(0) @Max(5) criterion8Score: number;
+  @ApiProperty({ minimum: 0, maximum: 5 }) @IsNumber() @Min(0) @Max(5) criterion9Score: number;
+  @ApiProperty({ minimum: 0, maximum: 5 }) @IsNumber() @Min(0) @Max(5) criterion10Score: number;
 
-  @ApiProperty({ minimum: 0, maximum: 20 })
-  @IsNumber() @Min(0) @Max(20)
-  implementationCapacityScore: number;
+  // D. Impact environnemental et social
+  @ApiProperty({ minimum: 0, maximum: 5 }) @IsNumber() @Min(0) @Max(5) criterion11Score: number;
+  @ApiProperty({ minimum: 0, maximum: 5 }) @IsNumber() @Min(0) @Max(5) criterion12Score: number;
 
-  @ApiProperty({ minimum: 0, maximum: 10 })
-  @IsNumber() @Min(0) @Max(10)
-  socialImpactScore: number;
-
-  @ApiProperty({ minimum: 0, maximum: 10 })
-  @IsNumber() @Min(0) @Max(10)
-  environmentalImpactScore: number;
+  // E. Études économiques et financières
+  @ApiProperty({ minimum: 0, maximum: 5 }) @IsNumber() @Min(0) @Max(5) criterion13Score: number;
+  @ApiProperty({ minimum: 0, maximum: 5 }) @IsNumber() @Min(0) @Max(5) criterion14Score: number;
+  @ApiProperty({ minimum: 0, maximum: 5 }) @IsNumber() @Min(0) @Max(5) criterion15Score: number;
 
   @ApiProperty({ required: false })
   @IsOptional() @IsString()
   globalComment?: string;
 
   @ApiProperty({ required: false })
-  @IsOptional() @IsString()
-  strengths?: string;
+  @IsOptional() @IsObject()
+  criteriaComments?: Record<string, string>;
 
-  @ApiProperty({ required: false })
+  @ApiProperty({ enum: ['STRONGLY_RECOMMENDED', 'RECOMMENDED', 'RECOMMENDED_WITH_RESERVES', 'NOT_RECOMMENDED'], required: false })
   @IsOptional() @IsString()
-  weaknesses?: string;
-
-  @ApiProperty({ enum: ['STRONGLY_RECOMMENDED', 'RECOMMENDED', 'RECOMMENDED_WITH_RESERVES', 'NOT_RECOMMENDED'] })
-  @IsNotEmpty() @IsString()
   @IsIn(['STRONGLY_RECOMMENDED', 'RECOMMENDED', 'RECOMMENDED_WITH_RESERVES', 'NOT_RECOMMENDED'])
-  recommendation: string;
+  recommendation?: string;
 
   @ApiProperty({ default: false })
   @IsBoolean()

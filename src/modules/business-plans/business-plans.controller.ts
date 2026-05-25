@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Put,
+  Patch,
   Delete,
   Body,
   Param,
@@ -94,6 +95,12 @@ export class BusinessPlansController {
       +id,
       isAdmin ? undefined : user.id,
     );
+  }
+
+  @Patch(':id/anonymize')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'COPA_MANAGER')
+  async anonymize(@Param('id') id: string) {
+    return this.businessPlansService.anonymize(+id);
   }
 
   @Get(':id/evaluation-summary')

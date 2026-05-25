@@ -6,6 +6,10 @@ import { Evaluator } from './entities/evaluator.entity';
 import { EvaluationAssignment } from './entities/evaluation-assignment.entity';
 import { SubmitEvaluationDto } from './dto/submit-evaluation.dto';
 import { CreateAssignmentDto } from './dto/create-assignment.dto';
+import { BusinessPlan } from '../business-plans/entities/business-plan.entity';
+import { Status } from '../reference/entities/status.entity';
+
+const MAX_EVALUATORS = 3;
 
 @Injectable()
 export class EvaluationsService {
@@ -16,17 +20,22 @@ export class EvaluationsService {
     private readonly evaluatorRepository: Repository<Evaluator>,
     @InjectRepository(EvaluationAssignment)
     private readonly assignmentRepository: Repository<EvaluationAssignment>,
+    @InjectRepository(BusinessPlan)
+    private readonly businessPlanRepository: Repository<BusinessPlan>,
+    @InjectRepository(Status)
+    private readonly statusRepository: Repository<Status>,
   ) {}
 
   private calcTotal(dto: SubmitEvaluationDto): number {
-    return (
-      dto.economicViabilityScore +
-      dto.innovationScore +
-      dto.qualityScore +
-      dto.implementationCapacityScore +
-      dto.socialImpactScore +
-      dto.environmentalImpactScore
-    );
+    const COEFFICIENTS = [2, 2, 2, 2, 2, 2, 3, 2, 2, 3, 2, 2, 2, 2, 2];
+    const scores = [
+      dto.criterion1Score,  dto.criterion2Score,  dto.criterion3Score,
+      dto.criterion4Score,  dto.criterion5Score,  dto.criterion6Score,  dto.criterion7Score,
+      dto.criterion8Score,  dto.criterion9Score,  dto.criterion10Score,
+      dto.criterion11Score, dto.criterion12Score,
+      dto.criterion13Score, dto.criterion14Score, dto.criterion15Score,
+    ];
+    return scores.reduce((sum, score, i) => sum + (score ?? 0) * COEFFICIENTS[i], 0);
   }
 
   // ── Évaluateurs ──────────────────────────────────────────────────────────
@@ -105,30 +114,50 @@ export class EvaluationsService {
 
   // ── Évaluations ──────────────────────────────────────────────────────────
 
-  async submitEvaluation(dto: SubmitEvaluationDto, evaluatorId: number, userId?: number): Promise<Evaluation> {
+  async resolveEvaluatorIdForUser(evaluatorId: number | null | undefined, userId?: number): Promise<number> {
+    return this.resolveEvaluatorId(evaluatorId, userId);
+  }
+
+  private async resolveEvaluatorId(evaluatorId: number | null | undefined, userId?: number): Promise<number> {
+    if (evaluatorId) return evaluatorId;
+    if (!userId) throw new BadRequestException('Profil évaluateur introuvable');
+    let evaluator = await this.evaluatorRepository.findOne({ where: { userId } });
+    if (!evaluator) {
+      evaluator = await this.evaluatorRepository.save(
+        this.evaluatorRepository.create({ userId }),
+      );
+    }
+    return evaluator.id;
+  }
+
+  async submitEvaluation(dto: SubmitEvaluationDto, evaluatorId: number | null | undefined, userId?: number): Promise<Evaluation> {
+    const resolvedEvaluatorId = await this.resolveEvaluatorId(evaluatorId, userId);
     let assignment = await this.assignmentRepository.findOne({
-      where: { businessPlanId: dto.businessPlanId, evaluatorId },
+      where: { businessPlanId: dto.businessPlanId, evaluatorId: resolvedEvaluatorId },
     });
 
     if (!assignment) {
+      const bp = await this.businessPlanRepository.findOne({ where: { id: dto.businessPlanId } });
+      if (!bp) throw new NotFoundException(`Plan d'affaires ${dto.businessPlanId} introuvable`);
       assignment = await this.assignmentRepository.save(
         this.assignmentRepository.create({
           businessPlanId: dto.businessPlanId,
-          evaluatorId,
+          evaluatorId: resolvedEvaluatorId,
+          copaEditionId: bp.copaEditionId,
           assignedByUserId: userId,
         }),
       );
     }
 
     const existing = await this.evaluationRepository.findOne({
-      where: { businessPlanId: dto.businessPlanId, evaluatorId },
+      where: { businessPlanId: dto.businessPlanId, evaluatorId: resolvedEvaluatorId },
     });
     if (existing) throw new ConflictException('Vous avez déjà soumis une évaluation pour ce plan');
 
     const totalScore = this.calcTotal(dto);
     const evaluation = this.evaluationRepository.create({
       ...dto,
-      evaluatorId,
+      evaluatorId: resolvedEvaluatorId,
       assignmentId: assignment.id,
       totalScore,
       isFinalEvaluation: false,
@@ -138,6 +167,8 @@ export class EvaluationsService {
 
     assignment.status = 'COMPLETED';
     await this.assignmentRepository.save(assignment);
+
+    await this.updateBusinessPlanStatus(dto.businessPlanId);
 
     return saved;
   }
@@ -150,7 +181,7 @@ export class EvaluationsService {
     if (evaluation.isFinalEvaluation) throw new BadRequestException('L\'évaluation est finalisée et ne peut plus être modifiée');
 
     Object.assign(evaluation, dto);
-    if (dto.economicViabilityScore !== undefined) {
+    if (dto.criterion1Score !== undefined) {
       evaluation.totalScore = this.calcTotal({ ...evaluation, ...dto } as SubmitEvaluationDto);
     }
     return this.evaluationRepository.save(evaluation);
@@ -170,6 +201,17 @@ export class EvaluationsService {
       relations: ['evaluator', 'evaluator.user'],
       order: { evaluationDate: 'ASC' },
     });
+  }
+
+  private async updateBusinessPlanStatus(businessPlanId: number): Promise<void> {
+    const count = await this.evaluationRepository.count({ where: { businessPlanId } });
+    const statusCode = count >= MAX_EVALUATORS ? 'EVALUATED' : 'UNDER_EVALUATION';
+    const status = await this.statusRepository.findOne({
+      where: { code: statusCode, entityType: 'BUSINESS_PLAN' },
+    });
+    if (status) {
+      await this.businessPlanRepository.update(businessPlanId, { statusId: status.id });
+    }
   }
 
   async getEvaluationStats(editionId?: number): Promise<any> {

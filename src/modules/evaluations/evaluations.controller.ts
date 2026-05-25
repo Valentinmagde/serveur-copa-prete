@@ -21,28 +21,30 @@ export class EvaluationsController {
   // ── Évaluateur connecté ──────────────────────────────────────────────────
 
   @Get('my/assignments')
-  @Roles('EVALUATOR')
+  @Roles('EVALUATOR', 'SUPER_ADMIN', 'ADMIN')
   @ApiOperation({ summary: 'Plans assignés à l\'évaluateur connecté' })
-  getMyAssignments(@CurrentUser() user: any) {
-    return this.evaluationsService.findMyAssignments(user.evaluatorId);
+  async getMyAssignments(@CurrentUser() user: any) {
+    const evaluatorId = await this.evaluationsService.resolveEvaluatorIdForUser(user.evaluatorId, user.id);
+    return this.evaluationsService.findMyAssignments(evaluatorId);
   }
 
   @Get('my/assignments/:id')
-  @Roles('EVALUATOR')
+  @Roles('EVALUATOR', 'SUPER_ADMIN', 'ADMIN')
   @ApiOperation({ summary: 'Détail d\'une affectation' })
   findAssignmentById(@Param('id', ParseIntPipe) id: number) {
     return this.evaluationsService.findAssignmentById(id);
   }
 
   @Get('my/evaluations')
-  @Roles('EVALUATOR')
+  @Roles('EVALUATOR', 'SUPER_ADMIN', 'ADMIN')
   @ApiOperation({ summary: 'Évaluations soumises par l\'évaluateur connecté' })
-  getMyEvaluations(@CurrentUser() user: any) {
-    return this.evaluationsService.findMyEvaluations(user.evaluatorId);
+  async getMyEvaluations(@CurrentUser() user: any) {
+    const evaluatorId = await this.evaluationsService.resolveEvaluatorIdForUser(user.evaluatorId, user.id);
+    return this.evaluationsService.findMyEvaluations(evaluatorId);
   }
 
   @Post()
-  @Roles('EVALUATOR')
+  @Roles('EVALUATOR', 'SUPER_ADMIN', 'ADMIN')
   @ApiOperation({ summary: 'Soumettre une évaluation' })
   submitEvaluation(@Body() dto: SubmitEvaluationDto, @CurrentUser() user: any) {
     return this.evaluationsService.submitEvaluation(dto, user.evaluatorId, user.id);

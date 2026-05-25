@@ -437,6 +437,13 @@ export class BusinessPlansService {
     )[0];
   }
 
+  async anonymize(id: number): Promise<BusinessPlan> {
+    const bp = await this.businessPlanRepository.findOne({ where: { id } });
+    if (!bp) throw new NotFoundException(`Plan d'affaires ${id} introuvable`);
+    bp.isAnonymized = !bp.isAnonymized;
+    return this.businessPlanRepository.save(bp);
+  }
+
   async getEvaluationSummary(id: number): Promise<any> {
     const businessPlan = await this.findById(id, [
       'evaluations',

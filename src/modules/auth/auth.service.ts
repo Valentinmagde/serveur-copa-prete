@@ -23,6 +23,7 @@ import { RegistrationStep3Dto } from './dto/register-step3.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { User } from '../users/entities/user.entity';
 import { Company } from '../companies/entities/company.entity';
+import { Evaluator } from '../evaluations/entities/evaluator.entity';
 import { Beneficiary } from '../beneficiaries/entities/beneficiary.entity';
 import { DataSource, LessThan, Repository } from 'typeorm';
 import { Address } from '../reference/entities/address.entity';
@@ -52,6 +53,7 @@ export class AuthService {
     private readonly notificationsService: NotificationsService,
     @InjectRepository(User) private userRepo: Repository<User>,
     @InjectRepository(Company) private companyRepo: Repository<Company>,
+    @InjectRepository(Evaluator) private evaluatorRepo: Repository<Evaluator>,
     @InjectRedis() private readonly redis: Redis,
     private dataSource: DataSource,
   ) { }
@@ -208,7 +210,7 @@ export class AuthService {
     // 2. Récupérer les rôles de l'utilisateur
     const userRoles = await this.getUserRoles(user.id);
     const hasAdminRole = userRoles.some(role =>
-      ['SUPER_ADMIN', 'ADMIN', 'COPA_MANAGER'].includes(role.code)
+      ['SUPER_ADMIN', 'ADMIN', 'COPA_MANAGER', 'EVALUATOR'].includes(role.code)
     );
 
     if (!hasAdminRole) {
@@ -232,12 +234,16 @@ export class AuthService {
       userAgent,
     );
 
+    // Récupérer l'evaluatorId si l'utilisateur est un évaluateur
+    const evaluator = await this.evaluatorRepo.findOne({ where: { userId: user.id } });
+
     // 5. Générer les tokens
-    const payload = {
+    const payload: any = {
       sub: user.id,
       email: user.email,
       roles: userRoles.map(r => r.code),
     };
+    if (evaluator) payload.evaluatorId = evaluator.id;
 
     const accessToken = this.jwtService.sign(payload);
     const refreshToken = await this.createRefreshToken(user.id);
