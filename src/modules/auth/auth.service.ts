@@ -79,18 +79,6 @@ export class AuthService {
       );
     }
 
-    if (user.isBlocked) {
-      await this.authRepository.logLoginAttempt(
-        user.id,
-        email,
-        false,
-        ipAddress,
-        userAgent,
-        'Account is blocked',
-      );
-      throw new UnauthorizedException('Ce compte est bloqué');
-    }
-
     if (!user.isActive) {
       await this.authRepository.logLoginAttempt(
         user.id,
@@ -120,8 +108,6 @@ export class AuthService {
     const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
 
     if (!isPasswordValid) {
-      // Track failed login attempt
-      await this.usersService.recordFailedLogin(user.id);
       await this.authRepository.logLoginAttempt(
         user.id,
         email,
@@ -134,9 +120,6 @@ export class AuthService {
         "Nom d\'utilisateur ou mot de passe incorrect",
       );
     }
-
-    // Reset failed login attempts on successful login
-    await this.usersService.resetFailedLoginAttempts(user.id);
 
     // Journaliser la tentative réussie
     await this.authRepository.logLoginAttempt(
@@ -196,18 +179,6 @@ export class AuthService {
       throw new UnauthorizedException('Email ou mot de passe incorrect');
     }
 
-    if (user.isBlocked) {
-      await this.authRepository.logLoginAttempt(
-        user.id,
-        email,
-        false,
-        ipAddress,
-        userAgent,
-        'Account is blocked',
-      );
-      throw new UnauthorizedException('Ce compte est bloqué');
-    }
-
     if (!user.isActive) {
       await this.authRepository.logLoginAttempt(
         user.id,
@@ -223,7 +194,6 @@ export class AuthService {
     // Vérifier le mot de passe
     const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
     if (!isPasswordValid) {
-      await this.usersService.recordFailedLogin(user.id);
       await this.authRepository.logLoginAttempt(
         user.id,
         email,
@@ -253,10 +223,7 @@ export class AuthService {
       throw new UnauthorizedException('Accès non autorisé. Vous n\'avez pas les droits administrateur.');
     }
 
-    // 3. Réinitialiser les tentatives de connexion échouées
-    await this.usersService.resetFailedLoginAttempts(user.id);
-
-    // 4. Journaliser la tentative réussie
+    // 3. Journaliser la tentative réussie
     await this.authRepository.logLoginAttempt(
       user.id,
       email,
@@ -778,8 +745,8 @@ export class AuthService {
       }
 
       // Vérifier si le compte est actif
-      if (!user.isActive || user.isBlocked) {
-        this.logger.warn(`Compte inactif/bloqué: ${user.id}`);
+      if (!user.isActive) {
+        this.logger.warn(`Compte inactif: ${user.id}`);
         return false;
       }
 
@@ -877,7 +844,7 @@ export class AuthService {
 
     const user = await this.usersService.findById(token.userId);
 
-    if (!user || !user.isActive || user.isBlocked) {
+    if (!user || !user.isActive) {
       throw new UnauthorizedException('User not found or inactive');
     }
 
@@ -966,9 +933,9 @@ export class AuthService {
       }
 
       // Vérifier si l'utilisateur est actif
-      if (!user.isActive || user.isBlocked) {
+      if (!user.isActive) {
         this.logger.warn(
-          `Tentative de réinitialisation pour compte inactif/bloqué: ${user.id}`,
+          `Tentative de réinitialisation pour compte inactif: ${user.id}`,
         );
         return {
           message:

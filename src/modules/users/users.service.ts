@@ -514,24 +514,6 @@ export class UsersService {
     return userRoles.map((ur) => ur.role.code);
   }
 
-  async recordFailedLogin(userId: number): Promise<void> {
-    const user = await this.findById(userId);
-    user.failedLoginAttempts += 1;
-
-    if (user.failedLoginAttempts >= 5) {
-      user.isBlocked = true;
-      user.lastBlockedAt = new Date();
-    }
-
-    await this.userRepository.save(user);
-  }
-
-  async resetFailedLoginAttempts(userId: number): Promise<void> {
-    const user = await this.findById(userId);
-    user.failedLoginAttempts = 0;
-    await this.userRepository.save(user);
-  }
-
   async updateLastLogin(userId: number): Promise<void> {
     const user = await this.findById(userId);
     user.lastLoginAt = new Date();
