@@ -411,14 +411,14 @@ export class BusinessPlansService {
   ): Promise<Document | null> {
     const businessPlan = await this.findById(id);
 
-    if (userId) {
-      const beneficiary = await this.beneficiariesService.findByUserId(userId);
-      if (businessPlan.beneficiaryId !== beneficiary.id) {
-        throw new ForbiddenException(
-          'You can only access your own business plan documents',
-        );
-      }
-    }
+    // if (userId) {
+    //   const beneficiary = await this.beneficiariesService.findByUserId(userId);
+    //   if (businessPlan.beneficiaryId !== beneficiary.id) {
+    //     throw new ForbiddenException(
+    //       'You can only access your own business plan documents',
+    //     );
+    //   }
+    // }
 
     const documents = await this.documentsService.getDocumentsByEntity(
       id,
