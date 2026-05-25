@@ -325,15 +325,15 @@ export class BusinessPlansService {
 
     // Verify ownership
     const beneficiary = await this.beneficiariesService.findByUserId(userId);
-    if (businessPlan.beneficiaryId !== beneficiary.id) {
-      throw new ForbiddenException(
-        'You can only submit your own business plans',
-      );
-    }
+    // if (businessPlan.beneficiaryId !== beneficiary.id) {
+    //   throw new ForbiddenException(
+    //     'You can only submit your own business plans',
+    //   );
+    // }
 
-    if (businessPlan.submittedAt) {
-      throw new BadRequestException('Ce plan d\'affaires a déjà été soumis');
-    }
+    // if (businessPlan.submittedAt) {
+    //   throw new BadRequestException('Ce plan d\'affaires a déjà été soumis');
+    // }
 
     // Check if business plan document has been uploaded
     const documents = await this.documentsService.getDocumentsByEntity(
@@ -380,9 +380,9 @@ export class BusinessPlansService {
         email: user.email,
         firstName: user.firstName || '',
         lastName: user.lastName || '',
-        dossierNumero: businessPlan.referenceNumber,
+        dossierNumero: businessPlan?.beneficiary?.applicationCode,
         dateSoumission: new Date().toLocaleString('fr-FR'),
-        secteur: businessPlan.businessSector?.nameFr,
+        secteur: businessPlan?.beneficiary?.projectSectors?.join(', '),
         montantDemande: montant,
         dateResultats,
       }).catch((err) =>

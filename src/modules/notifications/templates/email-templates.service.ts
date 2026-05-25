@@ -765,7 +765,6 @@ export class EmailTemplatesService {
               <div class="info-row"><span class="info-label">Date/heure de dépôt :</span> ${data.dateSoumission || new Date().toLocaleString('fr-FR')}</div>
               <div class="info-row"><span class="info-label">Secteur :</span> ${data.secteur || 'Non renseigné'}</div>
               ${data.montantDemande ? `<div class="info-row"><span class="info-label">Montant demandé :</span> ${data.montantDemande} BIF</div>` : ''}
-              ${data.dateResultats ? `<div class="info-row"><span class="info-label">Date estimée des résultats :</span> ${data.dateResultats}</div>` : ''}
             </div>
           </div>
 
@@ -788,7 +787,6 @@ Nous accusons réception de votre plan d'affaires déposé en ligne sur la plate
 RÉCAPITULATIF :
   N° de dossier         : ${data.dossierNumero || 'N/A'}
   Date/heure de dépôt  : ${data.dateSoumission || new Date().toLocaleString('fr-FR')}
-  Secteur               : ${data.secteur || 'Non renseigné'}${data.montantDemande ? `\n  Montant demandé       : ${data.montantDemande} BIF` : ''}${data.dateResultats ? `\n  Résultats attendus    : ${data.dateResultats}` : ''}
 
 © ${new Date().getFullYear()} COPA Nyunganira
 Cet email est un accusé de réception automatique. Merci de ne pas y répondre.

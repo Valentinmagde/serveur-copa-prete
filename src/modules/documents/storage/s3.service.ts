@@ -10,7 +10,7 @@ export class S3Service {
   private readonly logger = new Logger(S3Service.name);
   private s3: AWS.S3;
   private bucket: string;
-  private useLocal: boolean;
+  private isLocal: boolean;
   private localUploadDir: string;
 
   constructor(private configService: ConfigService) {
@@ -18,11 +18,9 @@ export class S3Service {
     const accessKeyId = this.configService.get<string>('aws.accessKeyId');
     const secretAccessKey = this.configService.get<string>('aws.secretAccessKey');
 
-    this.useLocal = !accessKeyId || !secretAccessKey
-      || accessKeyId === 'your-access-key'
-      || secretAccessKey === 'your-secret-key';
+    this.isLocal = this.configService.get<string>('app.nodeEnv') === 'local';
 
-    if (this.useLocal) {
+    if (this.isLocal) {
       this.localUploadDir = path.resolve(process.cwd(), 'uploads');
       if (!fs.existsSync(this.localUploadDir)) {
         fs.mkdirSync(this.localUploadDir, { recursive: true });
@@ -31,15 +29,15 @@ export class S3Service {
     } else {
       this.s3 = new AWS.S3({
         region: region || 'eu-west-3',
-        accessKeyId,
-        secretAccessKey,
+        // accessKeyId,
+        // secretAccessKey,
       });
       this.bucket = this.configService.get<string>('aws.s3Bucket') || 'copa-platform-uploads';
     }
   }
 
   async uploadFile(file: Buffer, key: string, mimetype: string): Promise<string> {
-    if (this.useLocal) {
+    if (this.isLocal) {
       const filePath = path.join(this.localUploadDir, key);
       fs.mkdirSync(path.dirname(filePath), { recursive: true });
       fs.writeFileSync(filePath, file);
@@ -57,7 +55,7 @@ export class S3Service {
   }
 
   async downloadFile(key: string): Promise<Readable> {
-    if (this.useLocal) {
+    if (this.isLocal) {
       const localKey = key.startsWith('local://') ? key.slice(8) : key;
       const filePath = path.join(this.localUploadDir, localKey);
       return Readable.from(fs.readFileSync(filePath));
@@ -72,7 +70,7 @@ export class S3Service {
   }
 
   async deleteFile(key: string): Promise<void> {
-    if (this.useLocal) {
+    if (this.isLocal) {
       const localKey = key.startsWith('local://') ? key.slice(8) : key;
       const filePath = path.join(this.localUploadDir, localKey);
       if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
