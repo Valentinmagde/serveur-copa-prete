@@ -238,7 +238,7 @@ export class BusinessPlansService {
     });
 
     const plan = this.businessPlanRepository.create({
-      referenceNumber: this.generateReferenceNumber(beneficiary),
+      referenceNumber: await this.generateReferenceNumber(beneficiary),
       copaEditionId: activeEditions[0].id,
       beneficiaryId: beneficiary.id,
       projectTitle: beneficiary.projectTitle || "Plan d'affaires",
@@ -251,8 +251,10 @@ export class BusinessPlansService {
     return this.findById(saved.id);
   }
 
-  private generateReferenceNumber(beneficiary: any): string {
-    const code = (beneficiary.applicationCode ?? '').toString().padStart(5, '0');
+  private async generateReferenceNumber(beneficiary: any): Promise<string> {
+    const count = await this.businessPlanRepository.count();
+    const sequence = (count + 1).toString().padStart(5, '0');
+
     const isRefugee = beneficiary.category === 'REFUGEE';
     const isFemale = beneficiary.user?.gender?.code?.toUpperCase() === 'F';
 
@@ -262,7 +264,7 @@ export class BusinessPlansService {
     else if (!isRefugee && isFemale) suffix = 'COF';
     else suffix = 'COH';
 
-    return `${code}${suffix}`;
+    return `${sequence}${suffix}`;
   }
 
   async findById(id: number, relations: string[] = []): Promise<BusinessPlan> {
