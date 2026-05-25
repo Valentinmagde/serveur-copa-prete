@@ -763,8 +763,6 @@ export class EmailTemplatesService {
               <h3>RÉCAPITULATIF</h3>
               <div class="info-row"><span class="info-label">N° de dossier :</span> <strong>${data.dossierNumero || 'N/A'}</strong></div>
               <div class="info-row"><span class="info-label">Date/heure de dépôt :</span> ${data.dateSoumission || new Date().toLocaleString('fr-FR')}</div>
-              <div class="info-row"><span class="info-label">Secteur :</span> ${data.secteur || 'Non renseigné'}</div>
-              ${data.montantDemande ? `<div class="info-row"><span class="info-label">Montant demandé :</span> ${data.montantDemande} BIF</div>` : ''}
             </div>
           </div>
 
