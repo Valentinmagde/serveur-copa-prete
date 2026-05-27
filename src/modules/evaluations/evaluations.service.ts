@@ -27,12 +27,13 @@ export class EvaluationsService {
   ) {}
 
   private calcTotal(dto: SubmitEvaluationDto): number {
-    const COEFFICIENTS = [2, 2, 2, 2, 2, 2, 3, 2, 2, 3, 2, 2, 2, 2, 2];
+    // Grille VF26052026 : critères 11 et 12 passent à 1.5, nouveau critère 16 (affiché 13) coeff 1
+    const COEFFICIENTS = [2, 2, 2, 2, 2, 2, 3, 2, 2, 3, 1.5, 1.5, 1, 2, 2, 2];
     const scores = [
       dto.criterion1Score,  dto.criterion2Score,  dto.criterion3Score,
       dto.criterion4Score,  dto.criterion5Score,  dto.criterion6Score,  dto.criterion7Score,
       dto.criterion8Score,  dto.criterion9Score,  dto.criterion10Score,
-      dto.criterion11Score, dto.criterion12Score,
+      dto.criterion11Score, dto.criterion12Score, dto.criterion16Score ?? 0,
       dto.criterion13Score, dto.criterion14Score, dto.criterion15Score,
     ];
     return scores.reduce((sum, score, i) => sum + (score ?? 0) * COEFFICIENTS[i], 0);
@@ -212,6 +213,31 @@ export class EvaluationsService {
     if (status) {
       await this.businessPlanRepository.update(businessPlanId, { statusId: status.id });
     }
+  }
+
+  async getGapData(businessPlanId: number): Promise<Record<string, number>> {
+    const count = await this.evaluationRepository.count({ where: { businessPlanId } });
+    if (count === 0) return {};
+
+    const criteriaKeys = [
+      'criterion1Score', 'criterion2Score', 'criterion3Score',
+      'criterion4Score', 'criterion5Score', 'criterion6Score', 'criterion7Score',
+      'criterion8Score', 'criterion9Score', 'criterion10Score',
+      'criterion11Score', 'criterion12Score', 'criterion16Score',
+      'criterion13Score', 'criterion14Score', 'criterion15Score',
+    ];
+
+    const selects = criteriaKeys.map((k) => `AVG(e.${k}) as "${k}"`);
+    const result = await this.evaluationRepository
+      .createQueryBuilder('e')
+      .select(selects)
+      .where('e.businessPlanId = :businessPlanId', { businessPlanId })
+      .getRawOne();
+
+    if (!result) return {};
+    return Object.fromEntries(
+      criteriaKeys.map((k) => [k, result[k] != null ? parseFloat(result[k]) : 0]),
+    );
   }
 
   async getEvaluationStats(editionId?: number): Promise<any> {

@@ -51,14 +51,15 @@ export class EvaluationsController {
   }
 
   @Put(':id')
-  @Roles('EVALUATOR')
+  @Roles('EVALUATOR', 'SUPER_ADMIN', 'ADMIN')
   @ApiOperation({ summary: 'Modifier une évaluation' })
-  updateEvaluation(
+  async updateEvaluation(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: Partial<SubmitEvaluationDto>,
     @CurrentUser() user: any,
   ) {
-    return this.evaluationsService.updateEvaluation(id, dto, user.evaluatorId);
+    const evaluatorId = await this.evaluationsService.resolveEvaluatorIdForUser(user.evaluatorId, user.id);
+    return this.evaluationsService.updateEvaluation(id, dto, evaluatorId);
   }
 
   // ── Admin ────────────────────────────────────────────────────────────────
@@ -75,6 +76,13 @@ export class EvaluationsController {
   @ApiOperation({ summary: 'Affecter un plan à un évaluateur' })
   createAssignment(@Body() dto: CreateAssignmentDto, @CurrentUser() user: any) {
     return this.evaluationsService.createAssignment(dto, user.id);
+  }
+
+  @Get('business-plans/:id/gaps')
+  @Roles('EVALUATOR', 'SUPER_ADMIN', 'ADMIN', 'COPA_MANAGER')
+  @ApiOperation({ summary: 'Moyennes par critère (détection d\'écart) — sans détail individuel' })
+  getGapData(@Param('id', ParseIntPipe) id: number) {
+    return this.evaluationsService.getGapData(id);
   }
 
   @Get('business-plans/:id')

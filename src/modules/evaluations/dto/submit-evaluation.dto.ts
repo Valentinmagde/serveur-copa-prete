@@ -25,8 +25,9 @@ export class SubmitEvaluationDto {
   // D. Impact environnemental et social
   @ApiProperty({ minimum: 0, maximum: 5 }) @IsNumber() @Min(0) @Max(5) criterion11Score: number;
   @ApiProperty({ minimum: 0, maximum: 5 }) @IsNumber() @Min(0) @Max(5) criterion12Score: number;
+  @ApiProperty({ enum: [0, 5] }) @IsNumber() @IsIn([0, 5]) criterion16Score: number;
 
-  // E. Études économiques et financières
+  // E. Études économiques et financières (affiché 14, 15, 16 dans la grille VF26052026)
   @ApiProperty({ minimum: 0, maximum: 5 }) @IsNumber() @Min(0) @Max(5) criterion13Score: number;
   @ApiProperty({ minimum: 0, maximum: 5 }) @IsNumber() @Min(0) @Max(5) criterion14Score: number;
   @ApiProperty({ minimum: 0, maximum: 5 }) @IsNumber() @Min(0) @Max(5) criterion15Score: number;

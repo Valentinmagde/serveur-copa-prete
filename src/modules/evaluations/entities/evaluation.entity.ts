@@ -99,7 +99,11 @@ export class Evaluation {
   @Column({ name: 'criterion12_score', type: 'int', nullable: true })
   criterion12Score: number;
 
-  // E. Études économiques et financières
+  // Critère 13 grille VF26052026 — dirigée par femme/réfugié/batwa/albinos/handicap (0 ou 5)
+  @Column({ name: 'criterion16_score', type: 'int', nullable: true })
+  criterion16Score: number;
+
+  // E. Études économiques et financières (affichés 14, 15, 16 dans la grille VF26052026)
   @Column({ name: 'criterion13_score', type: 'int', nullable: true })
   criterion13Score: number;
 
@@ -109,7 +113,7 @@ export class Evaluation {
   @Column({ name: 'criterion15_score', type: 'int', nullable: true })
   criterion15Score: number;
 
-  @Column({ name: 'total_score', type: 'int', nullable: true })
+  @Column({ name: 'total_score', type: 'numeric', precision: 6, scale: 1, nullable: true })
   totalScore: number;
 
   @Column({ name: 'global_comment', type: 'text', nullable: true })
