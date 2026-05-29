@@ -150,7 +150,7 @@ export class BusinessPlansService {
 
     if (search) {
       queryBuilder.andWhere(
-        '(plan.projectTitle ILIKE :search OR plan.referenceNumber ILIKE :search)',
+        '(plan.projectTitle ILIKE :search OR plan.referenceNumber ILIKE :search OR beneficiary.applicationCode ILIKE :search)',
         { search: `%${search}%` },
       );
     }
