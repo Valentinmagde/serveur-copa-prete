@@ -182,9 +182,7 @@ export class EvaluationsService {
     if (evaluation.isFinalEvaluation) throw new BadRequestException('L\'évaluation est finalisée et ne peut plus être modifiée');
 
     Object.assign(evaluation, dto);
-    if (dto.criterion1Score !== undefined) {
-      evaluation.totalScore = this.calcTotal({ ...evaluation, ...dto } as SubmitEvaluationDto);
-    }
+    evaluation.totalScore = this.calcTotal(evaluation as unknown as SubmitEvaluationDto);
     return this.evaluationRepository.save(evaluation);
   }
 
