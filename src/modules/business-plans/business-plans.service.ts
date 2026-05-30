@@ -146,7 +146,8 @@ export class BusinessPlansService {
       .leftJoinAndSelect('beneficiary.user', 'user')
       .leftJoinAndSelect('plan.copaEdition', 'copaEdition')
       .leftJoinAndSelect('plan.businessSector', 'businessSector')
-      .leftJoinAndSelect('plan.status', 'status');
+      .leftJoinAndSelect('plan.status', 'status')
+      .where('plan.isFinalVersion = true');
 
     if (search) {
       queryBuilder.andWhere(
