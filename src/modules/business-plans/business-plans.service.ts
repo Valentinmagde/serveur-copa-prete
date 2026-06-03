@@ -470,4 +470,36 @@ export class BusinessPlansService {
       averageScore,
     };
   }
+
+  async updateFinancialData(
+    id: number,
+    dto: { verifiedFundingAmount?: number; verifiedTotalProjectCost?: number },
+    userId: number,
+  ): Promise<BusinessPlan> {
+    const plan = await this.businessPlanRepository.findOne({ where: { id } });
+    if (!plan) throw new NotFoundException("Plan d'affaires introuvable");
+
+    if (
+      plan.financialDataEvaluatorId &&
+      plan.financialDataEvaluatorId !== userId
+    ) {
+      throw new ForbiddenException(
+        'Les données financières ont déjà été saisies par un autre évaluateur',
+      );
+    }
+
+    await this.businessPlanRepository.update(id, {
+      ...(dto.verifiedFundingAmount !== undefined && {
+        verifiedFundingAmount: dto.verifiedFundingAmount,
+      }),
+      ...(dto.verifiedTotalProjectCost !== undefined && {
+        verifiedTotalProjectCost: dto.verifiedTotalProjectCost,
+      }),
+      financialDataEvaluatorId: userId,
+    });
+
+    return this.businessPlanRepository.findOne({
+      where: { id },
+    }) as Promise<BusinessPlan>;
+  }
 }

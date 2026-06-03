@@ -113,6 +113,31 @@ export class BusinessPlan {
   @Column({ name: 'submitted_by_user_id', nullable: true })
   submittedByUserId: number;
 
+  @Column({
+    type: 'decimal',
+    precision: 15,
+    scale: 0,
+    nullable: true,
+    name: 'verified_funding_amount',
+  })
+  verifiedFundingAmount: number;
+
+  @Column({
+    type: 'decimal',
+    precision: 15,
+    scale: 0,
+    nullable: true,
+    name: 'verified_total_project_cost',
+  })
+  verifiedTotalProjectCost: number;
+
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'financial_data_evaluator_id' })
+  financialDataEvaluator: User;
+
+  @Column({ name: 'financial_data_evaluator_id', nullable: true })
+  financialDataEvaluatorId: number;
+
   @OneToMany(
     () => BusinessPlanSection,
     (section: BusinessPlanSection) => section.businessPlan,

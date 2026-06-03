@@ -20,6 +20,7 @@ import { BusinessPlanFilterDto } from './dto/business-plan-filter.dto';
 import { CreateBusinessPlanDto } from './dto/create-business-plan.dto';
 import { UpdateBusinessPlanDto } from './dto/update-business-plan.dto';
 import { SubmitBusinessPlanDto } from './dto/submit-business-plan.dto';
+import { UpdateFinancialDataDto } from './dto/update-financial-data.dto';
 
 
 @ApiTags('business-plans')
@@ -95,6 +96,16 @@ export class BusinessPlansController {
       +id,
       isAdmin ? undefined : user.id,
     );
+  }
+
+  @Patch(':id/financial')
+  @Roles('EVALUATOR')
+  async updateFinancialData(
+    @Param('id') id: string,
+    @Body() dto: UpdateFinancialDataDto,
+    @CurrentUser() user,
+  ) {
+    return this.businessPlansService.updateFinancialData(+id, dto, user.id);
   }
 
   @Patch(':id/anonymize')
