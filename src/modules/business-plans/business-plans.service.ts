@@ -475,11 +475,13 @@ export class BusinessPlansService {
     id: number,
     dto: { verifiedFundingAmount?: number; verifiedTotalProjectCost?: number },
     userId: number,
+    bypassLock = false,
   ): Promise<BusinessPlan> {
     const plan = await this.businessPlanRepository.findOne({ where: { id } });
     if (!plan) throw new NotFoundException("Plan d'affaires introuvable");
 
     if (
+      !bypassLock &&
       plan.financialDataEvaluatorId &&
       plan.financialDataEvaluatorId !== userId
     ) {

@@ -99,13 +99,14 @@ export class BusinessPlansController {
   }
 
   @Patch(':id/financial')
-  @Roles('EVALUATOR')
+  @Roles('EVALUATOR', 'SUPER_ADMIN', 'ADMIN', 'COPA_MANAGER')
   async updateFinancialData(
     @Param('id') id: string,
     @Body() dto: UpdateFinancialDataDto,
     @CurrentUser() user,
   ) {
-    return this.businessPlansService.updateFinancialData(+id, dto, user.id);
+    const isAdmin = ['SUPER_ADMIN', 'ADMIN', 'COPA_MANAGER'].includes(user.role);
+    return this.businessPlansService.updateFinancialData(+id, dto, user.id, isAdmin);
   }
 
   @Patch(':id/anonymize')
