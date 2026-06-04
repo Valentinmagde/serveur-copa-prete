@@ -6,6 +6,18 @@ export class UpdateFinancialDataDto {
   @IsOptional()
   @IsNumber()
   @Min(0)
+  verifiedInvestmentSubsidy?: number;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  verifiedExploitationSubsidy?: number;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
   verifiedFundingAmount?: number;
 
   @ApiProperty({ required: false })

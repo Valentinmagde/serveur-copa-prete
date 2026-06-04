@@ -116,7 +116,25 @@ export class BusinessPlan {
   @Column({
     type: 'decimal',
     precision: 15,
-    scale: 0,
+    scale: 2,
+    nullable: true,
+    name: 'verified_investment_subsidy',
+  })
+  verifiedInvestmentSubsidy: number;
+
+  @Column({
+    type: 'decimal',
+    precision: 15,
+    scale: 2,
+    nullable: true,
+    name: 'verified_exploitation_subsidy',
+  })
+  verifiedExploitationSubsidy: number;
+
+  @Column({
+    type: 'decimal',
+    precision: 15,
+    scale: 2,
     nullable: true,
     name: 'verified_funding_amount',
   })
@@ -125,7 +143,7 @@ export class BusinessPlan {
   @Column({
     type: 'decimal',
     precision: 15,
-    scale: 0,
+    scale: 2,
     nullable: true,
     name: 'verified_total_project_cost',
   })

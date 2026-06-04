@@ -473,7 +473,12 @@ export class BusinessPlansService {
 
   async updateFinancialData(
     id: number,
-    dto: { verifiedFundingAmount?: number; verifiedTotalProjectCost?: number },
+    dto: {
+      verifiedInvestmentSubsidy?: number;
+      verifiedExploitationSubsidy?: number;
+      verifiedFundingAmount?: number;
+      verifiedTotalProjectCost?: number;
+    },
     userId: number,
     bypassLock = false,
   ): Promise<BusinessPlan> {
@@ -491,6 +496,12 @@ export class BusinessPlansService {
     }
 
     await this.businessPlanRepository.update(id, {
+      ...(dto.verifiedInvestmentSubsidy !== undefined && {
+        verifiedInvestmentSubsidy: dto.verifiedInvestmentSubsidy,
+      }),
+      ...(dto.verifiedExploitationSubsidy !== undefined && {
+        verifiedExploitationSubsidy: dto.verifiedExploitationSubsidy,
+      }),
       ...(dto.verifiedFundingAmount !== undefined && {
         verifiedFundingAmount: dto.verifiedFundingAmount,
       }),
