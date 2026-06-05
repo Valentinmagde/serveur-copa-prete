@@ -248,19 +248,35 @@ export class EvaluationsService {
         if (code) beneficiary.user.gender = { code, label } as any;
       }
 
-      if (beneficiary.user && !beneficiary.user.primaryAddress) {
+      if (beneficiary.user) {
         const hill         = r['primaryAddress_hill'];
         const neighborhood = r['primaryAddress_neighborhood'];
         const communeName  = r['commune_name'];
         const provinceName = r['province_name'];
-        beneficiary.user.primaryAddress = {
-          hill:          hill         ?? null,
-          neighborhood:  neighborhood ?? null,
-          commune: communeName ? {
-            name:     communeName,
-            province: provinceName ? { name: provinceName } as any : null,
-          } as any : null,
-        } as any;
+
+        if (!beneficiary.user.primaryAddress) {
+          beneficiary.user.primaryAddress = {
+            hill:          hill         ?? null,
+            neighborhood:  neighborhood ?? null,
+            commune: communeName ? {
+              name:     communeName,
+              province: provinceName ? { name: provinceName } as any : null,
+            } as any : null,
+          } as any;
+        } else {
+          if (!beneficiary.user.primaryAddress.commune) {
+            if (communeName) {
+              (beneficiary.user.primaryAddress as any).commune = {
+                name:     communeName,
+                province: provinceName ? { name: provinceName } as any : null,
+              };
+            }
+          } else if (!beneficiary.user.primaryAddress.commune.province) {
+            if (provinceName) {
+              (beneficiary.user.primaryAddress.commune as any).province = { name: provinceName };
+            }
+          }
+        }
       }
     });
 
