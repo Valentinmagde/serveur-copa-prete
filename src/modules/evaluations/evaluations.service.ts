@@ -210,6 +210,7 @@ export class EvaluationsService {
       .leftJoinAndSelect('evaluation.businessPlan', 'businessPlan')
       .leftJoinAndSelect('businessPlan.beneficiary', 'beneficiary')
       .leftJoinAndSelect('beneficiary.user', 'beneficiaryUser')
+      .leftJoinAndSelect('beneficiaryUser.gender', 'gender')
       .leftJoinAndSelect('beneficiary.company', 'company')
       .leftJoinAndSelect('businessPlan.copaEdition', 'copaEdition')
       .orderBy('businessPlan.referenceNumber', 'ASC')
