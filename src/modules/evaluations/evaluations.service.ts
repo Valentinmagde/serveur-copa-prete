@@ -214,7 +214,7 @@ export class EvaluationsService {
       .leftJoin('beneficiary.company', 'company')
       .addSelect(['company.id', 'company.companyName'])
       .leftJoin('beneficiaryUser.primaryAddress', 'primaryAddress')
-      .addSelect(['primaryAddress.id', 'primaryAddress.hill', 'primaryAddress.neighborhood'])
+      .addSelect(['primaryAddress.id', 'primaryAddress.street', 'primaryAddress.neighborhood'])
       .leftJoin('primaryAddress.commune', 'commune')
       .addSelect(['commune.id', 'commune.name'])
       .leftJoin('commune.province', 'province')
@@ -249,14 +249,14 @@ export class EvaluationsService {
       }
 
       if (beneficiary.user) {
-        const hill         = r['primaryAddress_hill'];
+        const street       = r['primaryAddress_street'];
         const neighborhood = r['primaryAddress_neighborhood'];
         const communeName  = r['commune_name'];
         const provinceName = r['province_name'];
 
         if (!beneficiary.user.primaryAddress) {
           beneficiary.user.primaryAddress = {
-            hill:          hill         ?? null,
+            street:        street       ?? null,
             neighborhood:  neighborhood ?? null,
             commune: communeName ? {
               name:     communeName,
