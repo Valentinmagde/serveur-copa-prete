@@ -64,6 +64,13 @@ export class EvaluationsController {
 
   // ── Admin ────────────────────────────────────────────────────────────────
 
+  @Get()
+  @Roles('SUPER_ADMIN', 'ADMIN', 'COPA_MANAGER')
+  @ApiOperation({ summary: 'Toutes les évaluations' })
+  findAll(@Query('editionId') editionId?: string) {
+    return this.evaluationsService.findAllEvaluations(editionId ? +editionId : undefined);
+  }
+
   @Get('assignments')
   @Roles('SUPER_ADMIN', 'ADMIN', 'COPA_MANAGER')
   @ApiOperation({ summary: 'Toutes les affectations' })

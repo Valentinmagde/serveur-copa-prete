@@ -202,6 +202,25 @@ export class EvaluationsService {
     });
   }
 
+  async findAllEvaluations(editionId?: number): Promise<Evaluation[]> {
+    const qb = this.evaluationRepository
+      .createQueryBuilder('evaluation')
+      .leftJoinAndSelect('evaluation.evaluator', 'evaluator')
+      .leftJoinAndSelect('evaluator.user', 'evaluatorUser')
+      .leftJoinAndSelect('evaluation.businessPlan', 'businessPlan')
+      .leftJoinAndSelect('businessPlan.beneficiary', 'beneficiary')
+      .leftJoinAndSelect('beneficiary.user', 'beneficiaryUser')
+      .leftJoinAndSelect('businessPlan.copaEdition', 'copaEdition')
+      .orderBy('businessPlan.referenceNumber', 'ASC')
+      .addOrderBy('evaluation.evaluationDate', 'ASC');
+
+    if (editionId) {
+      qb.where('businessPlan.copaEditionId = :editionId', { editionId });
+    }
+
+    return qb.getMany();
+  }
+
   private async updateBusinessPlanStatus(businessPlanId: number): Promise<void> {
     const count = await this.evaluationRepository.count({ where: { businessPlanId } });
     const statusCode = count >= MAX_EVALUATORS ? 'EVALUATED' : 'UNDER_EVALUATION';
