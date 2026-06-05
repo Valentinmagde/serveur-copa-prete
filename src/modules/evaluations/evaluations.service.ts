@@ -213,6 +213,12 @@ export class EvaluationsService {
       .leftJoinAndSelect('beneficiaryUser.gender', 'gender')
       .leftJoin('beneficiary.company', 'company')
       .addSelect(['company.id', 'company.companyName'])
+      .leftJoin('beneficiaryUser.primaryAddress', 'primaryAddress')
+      .addSelect(['primaryAddress.id', 'primaryAddress.hill', 'primaryAddress.neighborhood'])
+      .leftJoin('primaryAddress.commune', 'commune')
+      .addSelect(['commune.id', 'commune.name'])
+      .leftJoin('commune.province', 'province')
+      .addSelect(['province.id', 'province.name'])
       .leftJoinAndSelect('businessPlan.copaEdition', 'copaEdition')
       .orderBy('businessPlan.referenceNumber', 'ASC')
       .addOrderBy('evaluation.evaluationDate', 'ASC');
@@ -240,6 +246,21 @@ export class EvaluationsService {
         const code  = r['gender_code'];
         const label = r['gender_label'];
         if (code) beneficiary.user.gender = { code, label } as any;
+      }
+
+      if (beneficiary.user && !beneficiary.user.primaryAddress) {
+        const hill         = r['primaryAddress_hill'];
+        const neighborhood = r['primaryAddress_neighborhood'];
+        const communeName  = r['commune_name'];
+        const provinceName = r['province_name'];
+        beneficiary.user.primaryAddress = {
+          hill:          hill         ?? null,
+          neighborhood:  neighborhood ?? null,
+          commune: communeName ? {
+            name:     communeName,
+            province: provinceName ? { name: provinceName } as any : null,
+          } as any : null,
+        } as any;
       }
     });
 
