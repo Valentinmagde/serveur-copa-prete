@@ -211,7 +211,8 @@ export class EvaluationsService {
       .leftJoinAndSelect('businessPlan.beneficiary', 'beneficiary')
       .leftJoinAndSelect('beneficiary.user', 'beneficiaryUser')
       .leftJoinAndSelect('beneficiaryUser.gender', 'gender')
-      .leftJoinAndSelect('beneficiary.company', 'company')
+      .leftJoin('beneficiary.company', 'company')
+      .addSelect(['company.id', 'company.companyName'])
       .leftJoinAndSelect('businessPlan.copaEdition', 'copaEdition')
       .orderBy('businessPlan.referenceNumber', 'ASC')
       .addOrderBy('evaluation.evaluationDate', 'ASC');
@@ -220,7 +221,21 @@ export class EvaluationsService {
       qb.where('businessPlan.copaEditionId = :editionId', { editionId });
     }
 
-    return qb.getMany();
+    const { entities, raw } = await qb.getRawAndEntities();
+
+    // Fallback : si TypeORM n'hydrate pas company via les joins profonds,
+    // on récupère le companyName depuis le résultat brut SQL
+    entities.forEach((ev, i) => {
+      const beneficiary = ev.businessPlan?.beneficiary;
+      if (beneficiary && !beneficiary.company) {
+        const name = raw[i]?.company_companyName ?? raw[i]?.company_company_name;
+        if (name) {
+          beneficiary.company = { companyName: name } as any;
+        }
+      }
+    });
+
+    return entities;
   }
 
   private async updateBusinessPlanStatus(businessPlanId: number): Promise<void> {
