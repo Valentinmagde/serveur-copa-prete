@@ -223,15 +223,23 @@ export class EvaluationsService {
 
     const { entities, raw } = await qb.getRawAndEntities();
 
-    // Fallback : si TypeORM n'hydrate pas company via les joins profonds,
-    // on récupère le companyName depuis le résultat brut SQL
+    // TypeORM n'hydrate pas toujours les relations à 4+ niveaux de profondeur
+    // depuis l'entité racine — on complète manuellement depuis le SQL brut.
     entities.forEach((ev, i) => {
+      const r = raw[i];
+      if (!r) return;
       const beneficiary = ev.businessPlan?.beneficiary;
-      if (beneficiary && !beneficiary.company) {
-        const name = raw[i]?.company_companyName ?? raw[i]?.company_company_name;
-        if (name) {
-          beneficiary.company = { companyName: name } as any;
-        }
+      if (!beneficiary) return;
+
+      if (!beneficiary.company) {
+        const companyName = r['company_company_name'] ?? r['company_companyName'];
+        if (companyName) beneficiary.company = { companyName } as any;
+      }
+
+      if (beneficiary.user && !beneficiary.user.gender) {
+        const code  = r['gender_code'];
+        const label = r['gender_label'];
+        if (code) beneficiary.user.gender = { code, label } as any;
       }
     });
 
