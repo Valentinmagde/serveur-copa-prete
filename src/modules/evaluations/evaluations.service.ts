@@ -212,7 +212,15 @@ export class EvaluationsService {
       .leftJoinAndSelect('beneficiary.user', 'beneficiaryUser')
       .leftJoinAndSelect('beneficiaryUser.gender', 'gender')
       .leftJoin('beneficiary.company', 'company')
-      .addSelect(['company.id', 'company.companyName'])
+      .addSelect([
+        'company.id', 'company.companyName', 'company.companyType',
+        'company.legalStatus', 'company.legalStatusOther', 'company.taxIdNumber',
+        'company.creationDate', 'company.permanentEmployees', 'company.totalEmployees',
+        'company.revenueYearN1', 'company.isLedByWoman', 'company.isLedByRefugee',
+        'company.companyPhone', 'company.companyEmail', 'company.otherCompanySector',
+      ])
+      .leftJoin('company.primarySector', 'primarySector')
+      .addSelect(['primarySector.id', 'primarySector.nameFr'])
       .leftJoin('beneficiaryUser.primaryAddress', 'primaryAddress')
       .addSelect(['primaryAddress.id', 'primaryAddress.street', 'primaryAddress.neighborhood'])
       .leftJoin('primaryAddress.commune', 'commune')
@@ -239,7 +247,31 @@ export class EvaluationsService {
 
       if (!beneficiary.company) {
         const companyName = r['company_company_name'] ?? r['company_companyName'];
-        if (companyName) beneficiary.company = { companyName } as any;
+        if (companyName) {
+          const sectorName = r['primarySector_name_fr'] ?? r['primarySector_nameFr'];
+          beneficiary.company = {
+            companyName,
+            companyType:       r['company_company_type']       ?? r['company_companyType']       ?? null,
+            legalStatus:       r['company_legal_status']       ?? r['company_legalStatus']       ?? null,
+            legalStatusOther:  r['company_legal_status_other'] ?? r['company_legalStatusOther']  ?? null,
+            taxIdNumber:       r['company_tax_id_number']      ?? r['company_taxIdNumber']       ?? null,
+            creationDate:      r['company_creation_date']      ?? r['company_creationDate']      ?? null,
+            permanentEmployees:r['company_permanent_employees']?? r['company_permanentEmployees']?? null,
+            totalEmployees:    r['company_total_employees']    ?? r['company_totalEmployees']    ?? null,
+            revenueYearN1:     r['company_revenue_year_n1']    ?? r['company_revenueYearN1']    ?? null,
+            isLedByWoman:      r['company_is_led_by_woman']    ?? r['company_isLedByWoman']      ?? null,
+            isLedByRefugee:    r['company_is_led_by_refugee']  ?? r['company_isLedByRefugee']   ?? null,
+            companyPhone:      r['company_company_phone']      ?? r['company_companyPhone']      ?? null,
+            companyEmail:      r['company_company_email']      ?? r['company_companyEmail']      ?? null,
+            otherCompanySector:r['company_other_company_sector']?? r['company_otherCompanySector']?? null,
+            primarySector:     sectorName ? { nameFr: sectorName } : null,
+          } as any;
+        }
+      } else {
+        if (!beneficiary.company.primarySector) {
+          const sectorName = r['primarySector_name_fr'] ?? r['primarySector_nameFr'];
+          if (sectorName) (beneficiary.company as any).primarySector = { nameFr: sectorName };
+        }
       }
 
       if (beneficiary.user && !beneficiary.user.gender) {
