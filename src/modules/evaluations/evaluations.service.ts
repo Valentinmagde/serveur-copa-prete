@@ -742,16 +742,19 @@ export class EvaluationsService {
       { header: 'Rue', key: 'rue', width: 18 },
 
       marker('sectionConflitInteret'),
-      { header: 'Agent de l\'État', key: 'estAgentEtat', width: 14 },
-      { header: "Proche d'un agent de l'État", key: 'procheAgentEtat', width: 18 },
-      { header: "Stagiaire de l'État", key: 'estStagiaireEtat', width: 14 },
-      { header: "Proche d'un stagiaire de l'État", key: 'procheStagiaireEtat', width: 18 },
-      { header: 'A été haut fonctionnaire', key: 'futHautFonctionnaire', width: 18 },
-      { header: "Proche d'un haut fonctionnaire", key: 'procheHautFonctionnaire', width: 20 },
-      { header: 'Lien avec un projet existant', key: 'lienProjetExistant', width: 18 },
-      { header: 'Fournisseur direct du projet', key: 'fournisseurDirectProjet', width: 18 },
-      { header: 'Subvention antérieure', key: 'subventionAnterieure', width: 16 },
-      { header: 'Détails subvention antérieure', key: 'detailsSubventionAnterieure', width: 30 },
+      // Intitulés = questions exactes de la déclaration de conflit d'intérêt
+      // affichées sur la page candidature (mpme/candidatures/[id]/page.tsx),
+      // pour que l'évaluateur retrouve la question complète, pas un résumé.
+      { header: "Êtes-vous présentement en fonction dans l'administration publique ou en contrat dans le cadre d'un projet financé par des bailleurs de fonds multilatéraux ou bilatéraux ?", key: 'estAgentEtat', width: 45 },
+      { header: "Êtes-vous la/le conjoint(e), l'ascendant(e) ou le/la descendant(e) direct(e) d'une personne qui travaille dans l'administration publique ou en contrat dans le cadre d'un projet financé par des bailleurs de fonds multilatéraux ou bilatéraux ?", key: 'procheAgentEtat', width: 45 },
+      { header: "Êtes-vous stagiaire dans l'administration publique à la date de soumission de votre candidature ?", key: 'estStagiaireEtat', width: 45 },
+      { header: "Êtes-vous la/le conjoint(e), l'ascendant(e) ou le/la descendant(e) direct(e) d'un stagiaire dans l'administration publique à la date de soumission de votre candidature ?", key: 'procheStagiaireEtat', width: 45 },
+      { header: 'Avez-vous été Président, Premier ministre, ministre, Député les cinq dernières années ?', key: 'futHautFonctionnaire', width: 45 },
+      { header: "Êtes-vous ou avez-vous été la/le conjoint(e), l'ascendant(e) ou le/la descendant(e) direct(e) d'un Président, Premier ministre, ministres, Député actuellement ou pendant les cinq dernières années ?", key: 'procheHautFonctionnaire', width: 45 },
+      { header: "Avez-vous un lien professionnel ou familial étroit avec l'Unité de Gestion du Projet (UGP) pour l'Emploi et la Transformation Économique (PRETE Nyunganira), l'équipe du COPA, le Comité de sélection ou une entité leur étant affiliée ?", key: 'lienProjetExistant', width: 45 },
+      { header: "Êtes-vous fournisseur direct ou réalisez-vous des travaux autres que les activités dont bénéficieront les subventions du COPA à un membre ou plusieurs membres de l'Unité de Gestion du Projet ou du Comité de sélection ?", key: 'fournisseurDirectProjet', width: 45 },
+      { header: "L'entreprise ou son/sa représentant/Représentante légal.e ont il déjà bénéficié d'une subvention similaire durant les 5 dernières années ?", key: 'subventionAnterieure', width: 45 },
+      { header: "Précisez le projet ou l'organisme concerné", key: 'detailsSubventionAnterieure', width: 35 },
 
       marker('sectionCandidature'),
       { header: 'Code bénéficiaire', key: 'codeBeneficiaire', width: 16 },
@@ -1129,6 +1132,9 @@ export class EvaluationsService {
     const ws = wb.addWorksheet('Informations', { views: [{ state: 'frozen', ySplit: 1 }] });
     ws.columns = columns;
     this.styleHeaderRow(ws.getRow(1));
+    // Les questions de la déclaration de conflit d'intérêt sont longues —
+    // une ligne d'en-tête plus haute laisse le texte se replier (wrapText).
+    ws.getRow(1).height = 120;
 
     const row = ws.addRow(values);
     this.styleInfoDataRow(row, columns, SECTION_MARKERS);
@@ -1152,6 +1158,7 @@ export class EvaluationsService {
     const ws = wb.addWorksheet('Informations', { views: [{ state: 'frozen', ySplit: 1 }] });
     ws.columns = columns;
     this.styleHeaderRow(ws.getRow(1));
+    ws.getRow(1).height = 120;
 
     for (const { bp, ben, evs, documents } of items) {
       const values = this.computeInfoValues(bp, ben, evs, documents, SECTION_MARKERS);
