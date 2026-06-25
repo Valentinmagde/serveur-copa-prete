@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { Evaluation } from './entities/evaluation.entity';
@@ -51,6 +51,8 @@ const RECOMMENDATION_LABELS: Record<string, string> = {
 
 @Injectable()
 export class EvaluationsService {
+  private readonly logger = new Logger(EvaluationsService.name);
+
   constructor(
     @InjectRepository(Evaluation)
     private readonly evaluationRepository: Repository<Evaluation>,
@@ -434,6 +436,21 @@ export class EvaluationsService {
     }
 
     const archive = archiver('zip', { zlib: { level: 9 } });
+    // Sans ce handler, une erreur émise par archiver (flux S3 corrompu,
+    // écriture zip défaillante...) est un événement 'error' non écouté sur
+    // un EventEmitter : elle remonte comme exception non gérée et tue la
+    // requête en plein streaming, après que le statut 200 a déjà été envoyé
+    // — invisible côté client autrement qu'un téléchargement qui échoue.
+    archive.on('error', (err) => {
+      this.logger.error(`Erreur archiver pendant l'export des dossiers: ${err.message}`, err.stack);
+    });
+    archive.on('warning', (err) => {
+      this.logger.warn(`Avertissement archiver pendant l'export des dossiers: ${err.message}`);
+    });
+    res.on('close', () => {
+      if (!archive.pointer()) return;
+      this.logger.warn('Connexion fermée par le client avant la fin de l\'export des dossiers.');
+    });
 
     res.status(200);
     res.setHeader('Content-Type', 'application/zip');
@@ -458,23 +475,40 @@ export class EvaluationsService {
       ];
       candidateExports.push({ bp, ben, evs, documents });
 
-      archive.append(await this.buildInfoWorkbook(bp, ben, evs, documents), {
-        name: `${folderName}/informations.xlsx`,
-      });
+      // Un candidat dont les données provoquent une exception (champ
+      // inattendu, etc.) ne doit pas interrompre l'export pour tous les
+      // autres — on logue et on passe au suivant.
+      try {
+        archive.append(await this.buildInfoWorkbook(bp, ben, evs, documents), {
+          name: `${folderName}/informations.xlsx`,
+        });
 
-      archive.append(await this.buildEvaluationWorkbook(evs), {
-        name: `${folderName}/evaluation.xlsx`,
-      });
+        archive.append(await this.buildEvaluationWorkbook(evs), {
+          name: `${folderName}/evaluation.xlsx`,
+        });
 
-      const { candidature, correction, planAffaires } = this.groupDocumentsForArchive(documents);
-      await this.appendDocuments(archive, candidature, `${folderName}/documents/candidature`);
-      await this.appendDocuments(archive, correction, `${folderName}/documents/correction`);
-      await this.appendDocuments(archive, planAffaires, `${folderName}/documents/plan-affaires`);
+        const { candidature, correction, planAffaires } = this.groupDocumentsForArchive(documents);
+        await this.appendDocuments(archive, candidature, `${folderName}/documents/candidature`);
+        await this.appendDocuments(archive, correction, `${folderName}/documents/correction`);
+        await this.appendDocuments(archive, planAffaires, `${folderName}/documents/plan-affaires`);
+      } catch (err) {
+        this.logger.error(
+          `Échec de la génération du dossier "${folderName}" (plan ${planId}): ${(err as Error).message}`,
+          (err as Error).stack,
+        );
+      }
     }
 
-    archive.append(await this.buildAllCandidatesWorkbook(candidateExports), {
-      name: 'informations-tous-candidats.xlsx',
-    });
+    try {
+      archive.append(await this.buildAllCandidatesWorkbook(candidateExports), {
+        name: 'informations-tous-candidats.xlsx',
+      });
+    } catch (err) {
+      this.logger.error(
+        `Échec de la génération du fichier maître informations-tous-candidats.xlsx: ${(err as Error).message}`,
+        (err as Error).stack,
+      );
+    }
 
     await archive.finalize();
   }
