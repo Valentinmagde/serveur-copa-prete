@@ -153,8 +153,9 @@ export class ComplaintsService {
     return complaint;
   }
 
-  async findAll(): Promise<Complaint[]> {
+  async findAll(editionId?: number): Promise<Complaint[]> {
     return this.complaintRepository.find({
+      where: editionId ? { copaEditionId: editionId } : {},
       relations: ['complaintType', 'status'],
       order: { createdAt: 'DESC' },
     });

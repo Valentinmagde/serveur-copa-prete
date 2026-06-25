@@ -13,6 +13,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { Notification } from '../notifications/entities/notification.entity';
 import { Document } from '../documents/entities/document.entity';
+import { CopaPhase } from '../reference/entities/copa-phase.entity';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { Document } from '../documents/entities/document.entity';
       Status,
       Notification,
       Document,
+      CopaPhase,
     ]),
   ],
   controllers: [BeneficiariesController],

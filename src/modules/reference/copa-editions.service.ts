@@ -2,12 +2,15 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { InjectRepository } from '@nestjs/typeorm';
 import { Between, LessThan, MoreThan, Repository } from 'typeorm';
 import { CopaEdition } from './entities/copa-edition.entity';
+import { CopaPhase, PhaseCode } from './entities/copa-phase.entity';
 
 @Injectable()
 export class CopaEditionsService {
   constructor(
     @InjectRepository(CopaEdition)
     private readonly copaEditionRepository: Repository<CopaEdition>,
+    @InjectRepository(CopaPhase)
+    private readonly copaPhaseRepository: Repository<CopaPhase>,
   ) {}
   async findAll(): Promise<any[]> {
     const editions = await this.copaEditionRepository
@@ -109,19 +112,164 @@ export class CopaEditionsService {
       }
     }
 
-    if (data.year) {
-      const existingYear = await this.copaEditionRepository.findOne({
-        where: { year: data.year },
-      });
-      if (existingYear) {
-        throw new ConflictException(
-          `Une édition pour l'année ${data.year} existe déjà`,
-        );
-      }
+    // Une même année peut avoir plusieurs éditions (ex: plusieurs cohortes
+    // dans l'année) — seul le code doit être unique.
+    const edition = this.copaEditionRepository.create(data);
+    const saved = await this.copaEditionRepository.save(edition);
+    await this.createDefaultPhases(saved);
+    return saved;
+  }
+
+  /**
+   * Calcule les 8 phases standard d'une édition. REGISTRATION et
+   * BUSINESS_PLAN_SUBMISSION reprennent les dates saisies sur l'édition ; les
+   * autres sont enchaînées à la suite (mêmes durées relatives que la cohorte
+   * de référence COPA-2026-FIRST-ROUND) et doivent être ajustées par l'admin
+   * via "Modifier les dates" sur la page de détail.
+   */
+  private buildPhaseTemplate(edition: CopaEdition) {
+    const addDays = (date: Date | string, days: number) => {
+      const d = new Date(date);
+      d.setDate(d.getDate() + days);
+      return d;
+    };
+
+    const registrationEnd = new Date(edition.registrationEndDate);
+    const submissionEnd = new Date(edition.submissionEndDate);
+
+    const candidatureStart = addDays(registrationEnd, 1);
+    const candidatureEnd = addDays(candidatureStart, 8);
+
+    const evaluationStart = addDays(submissionEnd, 2);
+    const evaluationEnd = addDays(evaluationStart, 44);
+
+    const selectionStart = addDays(evaluationEnd, 1);
+    const selectionEnd = addDays(selectionStart, 14);
+
+    const awardingStart = addDays(selectionEnd, 1);
+    const awardingEnd = addDays(awardingStart, 89);
+
+    return [
+      {
+        code: PhaseCode.REGISTRATION,
+        name: 'Registration',
+        nameFr: 'Inscription',
+        start: new Date(edition.registrationStartDate),
+        end: registrationEnd,
+        displayOrder: 1,
+      },
+      {
+        code: PhaseCode.CANDIDATURE_SUBMISSION,
+        name: 'Candidature Submission',
+        nameFr: 'Soumission de candidature',
+        start: candidatureStart,
+        end: candidatureEnd,
+        displayOrder: 2,
+      },
+      {
+        code: PhaseCode.BUSINESS_PLAN_SUBMISSION,
+        name: 'Business Plan Submission',
+        nameFr: "Soumission du plan d'affaires",
+        start: new Date(edition.submissionStartDate),
+        end: submissionEnd,
+        displayOrder: 3,
+      },
+      {
+        code: PhaseCode.EVALUATION,
+        name: 'Evaluation',
+        nameFr: 'Évaluation',
+        start: evaluationStart,
+        end: evaluationEnd,
+        displayOrder: 4,
+      },
+      {
+        code: PhaseCode.SELECTION,
+        name: 'Selection',
+        nameFr: 'Sélection',
+        start: selectionStart,
+        end: selectionEnd,
+        displayOrder: 5,
+      },
+      {
+        code: PhaseCode.AWARDING,
+        name: 'Awarding',
+        nameFr: 'Attribution',
+        start: awardingStart,
+        end: awardingEnd,
+        displayOrder: 6,
+      },
+      {
+        code: PhaseCode.MENTORING,
+        name: 'Mentoring',
+        nameFr: 'Accompagnement',
+        start: awardingStart,
+        end: addDays(awardingStart, 364),
+        displayOrder: 7,
+      },
+      {
+        code: PhaseCode.MONITORING,
+        name: 'Monitoring',
+        nameFr: 'Suivi',
+        start: awardingStart,
+        end: addDays(awardingStart, 499),
+        displayOrder: 8,
+      },
+    ];
+  }
+
+  private async createDefaultPhases(edition: CopaEdition): Promise<void> {
+    const template = this.buildPhaseTemplate(edition);
+    const phases = template.map((t) =>
+      this.copaPhaseRepository.create({
+        copaEditionId: edition.id,
+        phaseCode: t.code,
+        phaseName: t.name,
+        phaseNameFr: t.nameFr,
+        startDate: t.start,
+        endDate: t.end,
+        isActive: false,
+        displayOrder: t.displayOrder,
+      }),
+    );
+    await this.copaPhaseRepository.save(phases);
+  }
+
+  /**
+   * Ajoute les phases standard absentes d'une édition (sans toucher à celles
+   * qui existent déjà). Permet de rattraper une édition créée avant l'ajout
+   * de la génération automatique, ou une phase supprimée par erreur.
+   */
+  async completeMissingPhases(editionId: number): Promise<CopaPhase[]> {
+    const edition = await this.findById(editionId);
+    const existing = await this.copaPhaseRepository.find({
+      where: { copaEditionId: editionId },
+    });
+    const existingCodes = new Set(existing.map((p) => p.phaseCode));
+
+    const missing = this.buildPhaseTemplate(edition).filter(
+      (t) => !existingCodes.has(t.code),
+    );
+
+    if (missing.length) {
+      const phases = missing.map((t) =>
+        this.copaPhaseRepository.create({
+          copaEditionId: edition.id,
+          phaseCode: t.code,
+          phaseName: t.name,
+          phaseNameFr: t.nameFr,
+          startDate: t.start,
+          endDate: t.end,
+          isActive: false,
+          displayOrder: t.displayOrder,
+        }),
+      );
+      await this.copaPhaseRepository.save(phases);
     }
 
-    const edition = this.copaEditionRepository.create(data);
-    return this.copaEditionRepository.save(edition);
+    return this.copaPhaseRepository.find({
+      where: { copaEditionId: editionId },
+      order: { displayOrder: 'ASC' },
+    });
   }
 
   async update(id: number, data: Partial<CopaEdition>): Promise<CopaEdition> {
@@ -139,24 +287,13 @@ export class CopaEditionsService {
       }
     }
 
-    // Vérifier si la nouvelle année n'est pas déjà utilisée par une autre édition
-    if (data.year && data.year !== edition.year) {
-      const existingYear = await this.copaEditionRepository.findOne({
-        where: { year: data.year },
-      });
-      if (existingYear && existingYear.id !== id) {
-        throw new ConflictException(
-          `Une édition pour l'année ${data.year} existe déjà`,
-        );
-      }
-    }
-
     Object.assign(edition, data);
     return this.copaEditionRepository.save(edition);
   }
 
   async delete(id: number): Promise<void> {
     const edition = await this.findById(id);
+    await this.copaPhaseRepository.delete({ copaEditionId: id });
     await this.copaEditionRepository.remove(edition);
   }
 
@@ -169,10 +306,9 @@ export class CopaEditionsService {
   // ==================== GESTION DU STATUT ====================
 
   async activate(id: number): Promise<CopaEdition> {
-    // Désactiver toutes les éditions
-    await this.copaEditionRepository.update({}, { isActive: false });
-
-    // Activer l'édition choisie
+    // Plusieurs éditions peuvent être actives simultanément (ex: une cohorte
+    // encore en évaluation pendant que la suivante ouvre ses inscriptions).
+    // L'exclusivité se gère au niveau des phases (cf. ReferenceService.togglePhase).
     const edition = await this.findById(id);
     edition.isActive = true;
     return this.copaEditionRepository.save(edition);
@@ -259,15 +395,6 @@ export class CopaEditionsService {
 
   async duplicate(id: number, newYear: number): Promise<CopaEdition> {
     const source = await this.findById(id);
-
-    const existing = await this.copaEditionRepository.findOne({
-      where: { year: newYear },
-    });
-    if (existing) {
-      throw new ConflictException(
-        `Une édition pour l'année ${newYear} existe déjà`,
-      );
-    }
 
     const newEdition = this.copaEditionRepository.create({
       code: `${newYear}`,

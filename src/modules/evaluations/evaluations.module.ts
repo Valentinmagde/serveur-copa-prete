@@ -8,11 +8,14 @@ import { EvaluationAssignment } from './entities/evaluation-assignment.entity';
 import { BusinessPlansModule } from '../business-plans/business-plans.module';
 import { BusinessPlan } from '../business-plans/entities/business-plan.entity';
 import { Status } from '../reference/entities/status.entity';
+import { Document } from '../documents/entities/document.entity';
+import { DocumentsModule } from '../documents/documents.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Evaluation, Evaluator, EvaluationAssignment, BusinessPlan, Status]),
+    TypeOrmModule.forFeature([Evaluation, Evaluator, EvaluationAssignment, BusinessPlan, Status, Document]),
     BusinessPlansModule,
+    DocumentsModule,
   ],
   controllers: [EvaluationsController],
   providers: [EvaluationsService],

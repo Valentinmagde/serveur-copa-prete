@@ -1,7 +1,8 @@
 import {
   Controller, Get, Post, Put, Body, Param,
-  ParseIntPipe, Query, UseGuards,
+  ParseIntPipe, Query, UseGuards, Res,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { EvaluationsService } from './evaluations.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -38,9 +39,9 @@ export class EvaluationsController {
   @Get('my/evaluations')
   @Roles('EVALUATOR', 'SUPER_ADMIN', 'ADMIN')
   @ApiOperation({ summary: 'Évaluations soumises par l\'évaluateur connecté' })
-  async getMyEvaluations(@CurrentUser() user: any) {
+  async getMyEvaluations(@CurrentUser() user: any, @Query('editionId') editionId?: string) {
     const evaluatorId = await this.evaluationsService.resolveEvaluatorIdForUser(user.evaluatorId, user.id);
-    return this.evaluationsService.findMyEvaluations(evaluatorId);
+    return this.evaluationsService.findMyEvaluations(evaluatorId, editionId ? +editionId : undefined);
   }
 
   @Post()
@@ -69,6 +70,19 @@ export class EvaluationsController {
   @ApiOperation({ summary: 'Toutes les évaluations' })
   findAll(@Query('editionId') editionId?: string) {
     return this.evaluationsService.findAllEvaluations(editionId ? +editionId : undefined);
+  }
+
+  @Get('export/dossiers')
+  @Roles('SUPER_ADMIN', 'ADMIN', 'COPA_MANAGER')
+  @ApiOperation({ summary: 'Télécharge un ZIP avec un dossier par candidat (infos + notes + plan déposé)' })
+  async exportDossiers(
+    @Query('editionId') editionId: string | undefined,
+    @Res() res: Response,
+  ) {
+    await this.evaluationsService.streamDossiersZip(
+      editionId ? +editionId : undefined,
+      res,
+    );
   }
 
   @Get('assignments')

@@ -280,6 +280,22 @@ export class AuthService {
     ip: string,
     userAgent: string,
   ) {
+    // Un compte existant peut s'inscrire à une nouvelle édition : même email,
+    // mot de passe vérifié pour confirmer l'identité, dossier totalement
+    // indépendant de ses inscriptions précédentes.
+    const existingUser = await this.userRepo.findOne({
+      where: { email: registerDto.email.toLowerCase() },
+    });
+
+    if (existingUser) {
+      return this.registerExistingUserForEdition(
+        existingUser,
+        registerDto,
+        ip,
+        userAgent,
+      );
+    }
+
     // Validate registration
     await this.validateMpme(registerDto);
 
@@ -403,6 +419,146 @@ export class AuthService {
       //   throw new ConflictException('Une erreur de duplication est survenue');
       // }
 
+      throw new InternalServerErrorException(
+        "Erreur lors de l'inscription. Veuillez réessayer.",
+      );
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  /**
+   * Inscrit un compte existant à une nouvelle édition COPA. Le dossier créé
+   * est totalement indépendant des inscriptions précédentes de ce compte
+   * (pas d'entreprise/projet repris) ; seule l'identité (déjà sur User) est
+   * partagée puisqu'il s'agit du même compte.
+   */
+  private async registerExistingUserForEdition(
+    existingUser: User,
+    registerDto: RegistrationMpmeDto,
+    ip: string,
+    userAgent: string,
+  ) {
+    const isPasswordValid = await bcrypt.compare(
+      registerDto.password,
+      existingUser.passwordHash,
+    );
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('Mot de passe incorrect');
+    }
+
+    if (registerDto.password !== registerDto.passwordConfirmation) {
+      throw new BadRequestException(
+        'Les mots de passe ne correspondent pas',
+      );
+    }
+
+    if (
+      !registerDto.acceptCGU ||
+      !registerDto.acceptPrivacyPolicy ||
+      !registerDto.certifyAccuracy
+    ) {
+      throw new BadRequestException(
+        "Vous devez accepter les conditions générales, la politique de confidentialité et certifier l'exactitude des informations",
+      );
+    }
+
+    // Le téléphone soumis ne doit pas appartenir à un AUTRE compte
+    const existingPhone = await this.userRepo.findOne({
+      where: { phoneNumber: registerDto.phone },
+    });
+    if (existingPhone && existingPhone.id !== existingUser.id) {
+      throw new ConflictException('Ce numéro de téléphone est déjà utilisé');
+    }
+
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const beneficiaryRepo = queryRunner.manager.getRepository(Beneficiary);
+
+      const existingBeneficiary = await beneficiaryRepo.findOne({
+        where: {
+          userId: existingUser.id,
+          copaEditionId: registerDto.copaEditionId,
+        },
+      });
+      if (existingBeneficiary) {
+        throw new ConflictException(
+          'Vous êtes déjà inscrit à cette édition',
+        );
+      }
+
+      const statusRepo = queryRunner.manager.getRepository(Status);
+      let registeredStatus = await statusRepo.findOne({
+        where: { code: 'REGISTERED', entityType: 'BENEFICIARY' },
+      });
+      if (!registeredStatus) {
+        registeredStatus = statusRepo.create({
+          code: 'REGISTERED',
+          name: 'Registered',
+          entityType: 'BENEFICIARY',
+          displayOrder: 1,
+          isActive: true,
+        });
+        registeredStatus = await queryRunner.manager.save(registeredStatus);
+      }
+
+      const beneficiary = beneficiaryRepo.create({
+        userId: existingUser.id,
+        companyId: null,
+        copaEditionId: registerDto.copaEditionId,
+        statusId: registeredStatus.id,
+        category: 'BURUNDIAN',
+      });
+      const savedBeneficiary = await queryRunner.manager.save(beneficiary);
+
+      await this.saveUserConsents(
+        queryRunner,
+        existingUser.id,
+        registerDto,
+        ip,
+        userAgent,
+      );
+
+      // Le rôle BENEFICIARY existe déjà pour ce compte depuis sa 1ère
+      // inscription ; ne pas le réassigner pour éviter une ligne dupliquée.
+      const userRoleRepo = queryRunner.manager.getRepository(UserRole);
+      const roleRepo = queryRunner.manager.getRepository(Role);
+      const beneficiaryRole = await roleRepo.findOne({
+        where: { code: 'BENEFICIARY' },
+      });
+      const hasRole = beneficiaryRole
+        ? await userRoleRepo.findOne({
+            where: { userId: existingUser.id, roleId: beneficiaryRole.id },
+          })
+        : null;
+      if (!hasRole) {
+        await this.assignBeneficiaryRole(queryRunner, existingUser.id);
+      }
+
+      await queryRunner.commitTransaction();
+
+      return {
+        success: true,
+        message: 'Inscription à la nouvelle édition réussie !',
+        userId: existingUser.id,
+        beneficiaryId: savedBeneficiary.id,
+        email: existingUser.email,
+        firstName: existingUser.firstName,
+        requiresEmailVerification: false,
+        requiresDocumentUpload: true,
+        nextSteps: [
+          'Votre dossier sera validé sous 24-48h',
+          'Vous recevrez une notification dès validation',
+          'Complétez votre profil et téléchargez vos documents',
+        ],
+      };
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      if (error instanceof ConflictException) throw error;
+      this.logger.error('Registration (existing user, new edition) failed:', error);
       throw new InternalServerErrorException(
         "Erreur lors de l'inscription. Veuillez réessayer.",
       );

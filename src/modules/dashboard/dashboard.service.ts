@@ -48,9 +48,10 @@ export class DashboardService {
     /**
      * Récupère les statistiques des cartes
      */
-    async getStatsCards(): Promise<StatsCardsResponseDto> {
+    async getStatsCards(editionId?: number): Promise<StatsCardsResponseDto> {
         const previousMonthDate = new Date();
         previousMonthDate.setMonth(previousMonthDate.getMonth() - 1);
+        const editionWhere = editionId ? { copaEditionId: editionId } : {};
 
         const [
             totalMpme,
@@ -66,82 +67,95 @@ export class DashboardService {
             totalRegistered,
         ] = await Promise.all([
             // 1. Total MPME inscrits
-            this.beneficiaryRepository.count(),
+            this.beneficiaryRepository.count({ where: editionWhere }),
 
             // 2. Total candidatures (profils complets)
             this.beneficiaryRepository.count({
-                where: { isProfileComplete: true },
+                where: { isProfileComplete: true, ...editionWhere },
             }),
 
             // 3. Total business plans soumis
             this.businessPlanRepository.count({
-                where: { submittedAt: MoreThan(new Date(0)) },
+                where: { submittedAt: MoreThan(new Date(0)), ...editionWhere },
             }),
 
             // 4. Nombre de femmes candidates
-            this.beneficiaryRepository.count({
-                where: { isProfileComplete: true },
+            this.beneficiaryRepository.find({
+                where: { isProfileComplete: true, ...editionWhere },
                 relations: ['user', 'user.gender'],
-            }).then(async (count) => {
-                const beneficiaries = await this.beneficiaryRepository.find({
-                    where: { isProfileComplete: true },
-                    relations: ['user', 'user.gender'],
-                });
-                return beneficiaries.filter((b) => b?.user?.gender?.code === "F").length;
-            }),
+            }).then((beneficiaries) =>
+                beneficiaries.filter((b) => b?.user?.gender?.code === "F").length,
+            ),
 
             // 5. Nombre de femmes inscrites
-            this.beneficiaryRepository
-                .createQueryBuilder('beneficiary')
-                .innerJoin('beneficiary.user', 'user')
-                .innerJoin('user.gender', 'gender')
-                .where('gender.code = :genderCode', { genderCode: 'F' })
-                .getCount(),
+            (() => {
+                const qb = this.beneficiaryRepository
+                    .createQueryBuilder('beneficiary')
+                    .innerJoin('beneficiary.user', 'user')
+                    .innerJoin('user.gender', 'gender')
+                    .where('gender.code = :genderCode', { genderCode: 'F' });
+                if (editionId) qb.andWhere('beneficiary.copaEditionId = :editionId', { editionId });
+                return qb.getCount();
+            })(),
 
             // 6. Subventions accordées (nombre)
             this.subventionRepository.count({
-                where: { approvalDate: Not(IsNull()) }
+                where: { approvalDate: Not(IsNull()), ...editionWhere },
             }),
 
             // 7. Montant total des subventions décaissées
-            this.subventionRepository
-                .createQueryBuilder('subvention')
-                .select('SUM(subvention.awardedAmount)', 'total')
-                .where('subvention.signatureDate IS NOT NULL')
-                .getRawOne()
-                .then(result => Number(result?.total || 0)),
+            (() => {
+                const qb = this.subventionRepository
+                    .createQueryBuilder('subvention')
+                    .select('SUM(subvention.awardedAmount)', 'total')
+                    .where('subvention.signatureDate IS NOT NULL');
+                if (editionId) qb.andWhere('subvention.copaEditionId = :editionId', { editionId });
+                return qb.getRawOne().then(result => Number(result?.total || 0));
+            })(),
 
             // 8. ✅ Nombre de candidatures rejetées
-            this.beneficiaryRepository
-                .createQueryBuilder('beneficiary')
-                .innerJoin('beneficiary.status', 'status')
-                .where('beneficiary.isProfileComplete = :isComplete', { isComplete: true })
-                .andWhere('status.code = :statusCode', { statusCode: 'REJECTED' })
-                .getCount(),
+            (() => {
+                const qb = this.beneficiaryRepository
+                    .createQueryBuilder('beneficiary')
+                    .innerJoin('beneficiary.status', 'status')
+                    .where('beneficiary.isProfileComplete = :isComplete', { isComplete: true })
+                    .andWhere('status.code = :statusCode', { statusCode: 'REJECTED' });
+                if (editionId) qb.andWhere('beneficiary.copaEditionId = :editionId', { editionId });
+                return qb.getCount();
+            })(),
 
             // 9. ✅ Nombre de candidatures présélectionnées
-            this.beneficiaryRepository
-                .createQueryBuilder('beneficiary')
-                .innerJoin('beneficiary.status', 'status')
-                .where('beneficiary.isProfileComplete = :isComplete', { isComplete: true })
-                .andWhere('status.code = :statusCode', { statusCode: 'PRE_SELECTED' })
-                .getCount(),
+            (() => {
+                const qb = this.beneficiaryRepository
+                    .createQueryBuilder('beneficiary')
+                    .innerJoin('beneficiary.status', 'status')
+                    .where('beneficiary.isProfileComplete = :isComplete', { isComplete: true })
+                    .andWhere('status.code = :statusCode', { statusCode: 'PRE_SELECTED' });
+                if (editionId) qb.andWhere('beneficiary.copaEditionId = :editionId', { editionId });
+                return qb.getCount();
+            })(),
 
             // 10. ✅ Nombre de candidatures sélectionnées
-            this.beneficiaryRepository
-                .createQueryBuilder('beneficiary')
-                .innerJoin('beneficiary.status', 'status')
-                .where('beneficiary.isProfileComplete = :isComplete', { isComplete: true })
-                .andWhere('status.code = :statusCode', { statusCode: 'SELECTED' })
-                .getCount(),
+            (() => {
+                const qb = this.beneficiaryRepository
+                    .createQueryBuilder('beneficiary')
+                    .innerJoin('beneficiary.status', 'status')
+                    .where('beneficiary.isProfileComplete = :isComplete', { isComplete: true })
+                    .andWhere('status.code = :statusCode', { statusCode: 'SELECTED' });
+                if (editionId) qb.andWhere('beneficiary.copaEditionId = :editionId', { editionId });
+                return qb.getCount();
+            })(),
 
             // 11. Nombre de candidatures enregistrées
-            this.beneficiaryRepository
-                .createQueryBuilder('beneficiary')
-                .innerJoin('beneficiary.status', 'status')
-                .where('beneficiary.isProfileComplete = :isComplete', { isComplete: true })
-                .andWhere('status.code = :statusCode', { statusCode: 'REGISTERED' })
-                .getCount(),
+            (() => {
+                const qb = this.beneficiaryRepository
+                    .createQueryBuilder('beneficiary')
+                    .innerJoin('beneficiary.status', 'status')
+                    .where('beneficiary.isProfileComplete = :isComplete', { isComplete: true })
+                    .andWhere('status.code = :statusCode', { statusCode: 'REGISTERED' });
+                if (editionId) qb.andWhere('beneficiary.copaEditionId = :editionId', { editionId });
+                return qb.getCount();
+            })(),
         ]);
 
         // Période précédente
@@ -159,86 +173,99 @@ export class DashboardService {
             previousTotalRegistered,
         ] = await Promise.all([
             this.beneficiaryRepository.count({
-                where: { createdAt: LessThan(previousMonthDate) }
+                where: { createdAt: LessThan(previousMonthDate), ...editionWhere }
             }),
             this.beneficiaryRepository.count({
                 where: {
                     isProfileComplete: true,
-                    createdAt: LessThan(previousMonthDate)
+                    createdAt: LessThan(previousMonthDate),
+                    ...editionWhere,
                 },
             }),
             this.businessPlanRepository.count({
                 where: {
-                    submittedAt: LessThan(previousMonthDate)
+                    submittedAt: LessThan(previousMonthDate),
+                    ...editionWhere,
                 },
             }),
-            this.beneficiaryRepository.count({
-                where: {
-                    isProfileComplete: true,
-                    updatedAt: LessThan(previousMonthDate)
-                },
+            this.beneficiaryRepository.find({
+                where: { isProfileComplete: true, ...editionWhere },
                 relations: ['user', 'user.gender'],
-            }).then(async (count) => {
-                const beneficiaries = await this.beneficiaryRepository.find({
-                    where: { isProfileComplete: true },
-                    relations: ['user', 'user.gender'],
-                });
-                return beneficiaries.filter((b) => b?.user?.gender?.code === "F").length;
-            }),
-            this.beneficiaryRepository
-                .createQueryBuilder('beneficiary')
-                .innerJoin('beneficiary.user', 'user')
-                .innerJoin('user.gender', 'gender')
-                .where('gender.code = :genderCode', { genderCode: 'F' })
-                .andWhere('beneficiary.createdAt < :previousMonthDate', { previousMonthDate })
-                .getCount(),
+            }).then((beneficiaries) =>
+                beneficiaries.filter((b) => b?.user?.gender?.code === "F").length,
+            ),
+            (() => {
+                const qb = this.beneficiaryRepository
+                    .createQueryBuilder('beneficiary')
+                    .innerJoin('beneficiary.user', 'user')
+                    .innerJoin('user.gender', 'gender')
+                    .where('gender.code = :genderCode', { genderCode: 'F' })
+                    .andWhere('beneficiary.createdAt < :previousMonthDate', { previousMonthDate });
+                if (editionId) qb.andWhere('beneficiary.copaEditionId = :editionId', { editionId });
+                return qb.getCount();
+            })(),
             this.subventionRepository.count({
                 where: {
-                    approvalDate: LessThan(previousMonthDate)
+                    approvalDate: LessThan(previousMonthDate),
+                    ...editionWhere,
                 },
             }),
-            this.subventionRepository
-                .createQueryBuilder('subvention')
-                .select('SUM(subvention.awardedAmount)', 'total')
-                .where('subvention.signatureDate < :previousMonthDate', { previousMonthDate })
-                .getRawOne()
-                .then(result => Number(result?.total || 0)),
+            (() => {
+                const qb = this.subventionRepository
+                    .createQueryBuilder('subvention')
+                    .select('SUM(subvention.awardedAmount)', 'total')
+                    .where('subvention.signatureDate < :previousMonthDate', { previousMonthDate });
+                if (editionId) qb.andWhere('subvention.copaEditionId = :editionId', { editionId });
+                return qb.getRawOne().then(result => Number(result?.total || 0));
+            })(),
 
             // ✅ Période précédente - Rejetées
-            this.beneficiaryRepository
-                .createQueryBuilder('beneficiary')
-                .innerJoin('beneficiary.status', 'status')
-                .where('beneficiary.isProfileComplete = :isComplete', { isComplete: true })
-                .andWhere('status.code = :statusCode', { statusCode: 'REJECTED' })
-                .andWhere('beneficiary.createdAt < :previousMonthDate', { previousMonthDate })
-                .getCount(),
+            (() => {
+                const qb = this.beneficiaryRepository
+                    .createQueryBuilder('beneficiary')
+                    .innerJoin('beneficiary.status', 'status')
+                    .where('beneficiary.isProfileComplete = :isComplete', { isComplete: true })
+                    .andWhere('status.code = :statusCode', { statusCode: 'REJECTED' })
+                    .andWhere('beneficiary.createdAt < :previousMonthDate', { previousMonthDate });
+                if (editionId) qb.andWhere('beneficiary.copaEditionId = :editionId', { editionId });
+                return qb.getCount();
+            })(),
 
             // ✅ Période précédente - Présélectionnées
-            this.beneficiaryRepository
-                .createQueryBuilder('beneficiary')
-                .innerJoin('beneficiary.status', 'status')
-                .where('beneficiary.isProfileComplete = :isComplete', { isComplete: true })
-                .andWhere('status.code = :statusCode', { statusCode: 'PRE_SELECTED' })
-                .andWhere('beneficiary.createdAt < :previousMonthDate', { previousMonthDate })
-                .getCount(),
+            (() => {
+                const qb = this.beneficiaryRepository
+                    .createQueryBuilder('beneficiary')
+                    .innerJoin('beneficiary.status', 'status')
+                    .where('beneficiary.isProfileComplete = :isComplete', { isComplete: true })
+                    .andWhere('status.code = :statusCode', { statusCode: 'PRE_SELECTED' })
+                    .andWhere('beneficiary.createdAt < :previousMonthDate', { previousMonthDate });
+                if (editionId) qb.andWhere('beneficiary.copaEditionId = :editionId', { editionId });
+                return qb.getCount();
+            })(),
 
             // ✅ Période précédente - Sélectionnées
-            this.beneficiaryRepository
-                .createQueryBuilder('beneficiary')
-                .innerJoin('beneficiary.status', 'status')
-                .where('beneficiary.isProfileComplete = :isComplete', { isComplete: true })
-                .andWhere('status.code = :statusCode', { statusCode: 'SELECTED' })
-                .andWhere('beneficiary.createdAt < :previousMonthDate', { previousMonthDate })
-                .getCount(),
+            (() => {
+                const qb = this.beneficiaryRepository
+                    .createQueryBuilder('beneficiary')
+                    .innerJoin('beneficiary.status', 'status')
+                    .where('beneficiary.isProfileComplete = :isComplete', { isComplete: true })
+                    .andWhere('status.code = :statusCode', { statusCode: 'SELECTED' })
+                    .andWhere('beneficiary.createdAt < :previousMonthDate', { previousMonthDate });
+                if (editionId) qb.andWhere('beneficiary.copaEditionId = :editionId', { editionId });
+                return qb.getCount();
+            })(),
 
             // Période précédente - Enregistrées
-            this.beneficiaryRepository
-                .createQueryBuilder('beneficiary')
-                .innerJoin('beneficiary.status', 'status')
-                .where('beneficiary.isProfileComplete = :isComplete', { isComplete: true })
-                .andWhere('status.code = :statusCode', { statusCode: 'REGISTERED' })
-                .andWhere('beneficiary.createdAt < :previousMonthDate', { previousMonthDate })
-                .getCount(),
+            (() => {
+                const qb = this.beneficiaryRepository
+                    .createQueryBuilder('beneficiary')
+                    .innerJoin('beneficiary.status', 'status')
+                    .where('beneficiary.isProfileComplete = :isComplete', { isComplete: true })
+                    .andWhere('status.code = :statusCode', { statusCode: 'REGISTERED' })
+                    .andWhere('beneficiary.createdAt < :previousMonthDate', { previousMonthDate });
+                if (editionId) qb.andWhere('beneficiary.copaEditionId = :editionId', { editionId });
+                return qb.getCount();
+            })(),
         ]);
 
         const emploisCrees = 0;
@@ -296,9 +323,9 @@ export class DashboardService {
     /**
      * Récupère les candidatures par secteur
      */
-    async getCandidatesBySector(): Promise<SectorDataDto[]> {
+    async getCandidatesBySector(editionId?: number): Promise<SectorDataDto[]> {
         const beneficiaries = await this.beneficiaryRepository.find({
-            where: { isProfileComplete: true },
+            where: { isProfileComplete: true, ...(editionId ? { copaEditionId: editionId } : {}) },
             relations: [
                 'user',
                 'user.gender',
@@ -344,7 +371,7 @@ export class DashboardService {
     /**
      * Récupère les inscriptions par région (Burundi)
      */
-    async getRegionalInscriptions(): Promise<RegionalDataDto[]> {
+    async getRegionalInscriptions(editionId?: number): Promise<RegionalDataDto[]> {
         // Récupérer tous les utilisateurs avec leurs adresses et bénéficiaires
         const users = await this.userRepository.find({
             relations: [
@@ -356,6 +383,7 @@ export class DashboardService {
             where: {
                 beneficiary: {
                     isProfileComplete: true,
+                    ...(editionId ? { copaEditionId: editionId } : {}),
                 },
             },
         });
@@ -404,9 +432,9 @@ export class DashboardService {
     /**
      * Récupère l'analyse par genre et catégorie
      */
-    async getGenderCategoryAnalysis(): Promise<GenderCategoryDataDto> {
+    async getGenderCategoryAnalysis(editionId?: number): Promise<GenderCategoryDataDto> {
         const beneficiaries = await this.beneficiaryRepository.find({
-            where: { isProfileComplete: true },
+            where: { isProfileComplete: true, ...(editionId ? { copaEditionId: editionId } : {}) },
             relations: ['user', 'user.gender'],
         });
 
@@ -457,14 +485,16 @@ export class DashboardService {
     /**
      * Récupère l'évolution des inscriptions
      */
-    async getRegistrationTrend(months: number = 12): Promise<TrendDataDto[]> {
+    async getRegistrationTrend(months: number = 12, editionId?: number): Promise<TrendDataDto[]> {
         const currentDate = new Date();
         const startDate = new Date();
         startDate.setMonth(startDate.getMonth() - months);
+        const editionWhere = editionId ? { copaEditionId: editionId } : {};
 
         const beneficiaries = await this.beneficiaryRepository.find({
             where: {
                 createdAt: Between(startDate, currentDate),
+                ...editionWhere,
             },
             relations: ['businessPlans'],
         });
@@ -472,6 +502,7 @@ export class DashboardService {
         const businessPlans = await this.businessPlanRepository.find({
             where: {
                 submittedAt: Between(startDate, currentDate),
+                ...editionWhere,
             },
         });
 
@@ -518,14 +549,14 @@ export class DashboardService {
     /**
      * Récupère le pipeline par statut
      */
-    async getStatusPipeline(): Promise<StatusDataDto[]> {
+    async getStatusPipeline(editionId?: number): Promise<StatusDataDto[]> {
         const statuses = await this.statusRepository.find({
             where: { entityType: 'BENEFICIARY', isActive: true },
             order: { displayOrder: 'ASC' },
         });
 
         const beneficiaries = await this.beneficiaryRepository.find({
-            where: { isProfileComplete: true },
+            where: { isProfileComplete: true, ...(editionId ? { copaEditionId: editionId } : {}) },
             relations: ['status'],
         });
 
@@ -576,18 +607,19 @@ export class DashboardService {
         return result.sort((a, b) => b.count - a.count);
     }
 
-    async getCompanyStatusAnalysis(): Promise<Array<{ status: string; count: number; percentage: number }>> {
+    async getCompanyStatusAnalysis(editionId?: number): Promise<Array<{ status: string; count: number; percentage: number }>> {
         const total = await this.beneficiaryRepository.count({
-            where: { companyType: Not(IsNull()) }
+            where: { companyType: Not(IsNull()), ...(editionId ? { copaEditionId: editionId } : {}) }
         });
 
-        const stats = await this.beneficiaryRepository
+        const statsQb = this.beneficiaryRepository
             .createQueryBuilder('b')
             .select('b.companyType', 'status')
             .addSelect('COUNT(*)', 'count')
             .where('b.companyType IS NOT NULL and b.isProfileComplete = true')
-            .groupBy('b.companyType')
-            .getRawMany();
+            .groupBy('b.companyType');
+        if (editionId) statsQb.andWhere('b.copaEditionId = :editionId', { editionId });
+        const stats = await statsQb.getRawMany();
 
         return stats.map(item => ({
             status: item.status,
@@ -599,9 +631,9 @@ export class DashboardService {
     /**
      * Récupère les dernières candidatures
      */
-    async getRecentApplications(limit: number = 21): Promise<RecentApplicationDto[]> {
+    async getRecentApplications(limit: number = 21, editionId?: number): Promise<RecentApplicationDto[]> {
         const beneficiaries = await this.beneficiaryRepository.find({
-            where: { isProfileComplete: true },
+            where: { isProfileComplete: true, ...(editionId ? { copaEditionId: editionId } : {}) },
             relations: ['user', 'company', 'company.primarySector', 'status'],
             order: { updatedAt: 'DESC', createdAt: 'DESC' },
             take: limit,
@@ -632,15 +664,15 @@ export class DashboardService {
     }
 
     // dashboard.service.ts
-    async getRegistrationTrendByPeriod(period: string = 'month'): Promise<any[]> {
+    async getRegistrationTrendByPeriod(period: string = 'month', editionId?: number): Promise<any[]> {
         // Inscriptions totales
-        const registrations = await this.getRegistrationsByPeriod(period);
+        const registrations = await this.getRegistrationsByPeriod(period, editionId);
 
         // Profils complets
-        const completed = await this.getCompletedProfilesByPeriod(period);
+        const completed = await this.getCompletedProfilesByPeriod(period, editionId);
 
         // Soumis
-        const submitted = await this.getSubmittedBeneficiariesByPeriod(period);
+        const submitted = await this.getSubmittedBeneficiariesByPeriod(period, editionId);
 
         // Fusionner les résultats
         const datesMap = new Map();
@@ -707,39 +739,42 @@ export class DashboardService {
         return result;
     }
 
-    private async getRegistrationsByPeriod(period: string): Promise<any[]> {
+    private async getRegistrationsByPeriod(period: string, editionId?: number): Promise<any[]> {
         const groupBy = this.getGroupByExpression(period, 'b.created_at');
-        return this.beneficiaryRepository
+        const qb = this.beneficiaryRepository
             .createQueryBuilder('b')
             .select(`${groupBy} as date`)
             .addSelect('COUNT(*)', 'count')
             .groupBy(groupBy)
-            .orderBy('date', 'ASC')
-            .getRawMany();
+            .orderBy('date', 'ASC');
+        if (editionId) qb.andWhere('b.copa_edition_id = :editionId', { editionId });
+        return qb.getRawMany();
     }
 
-    private async getCompletedProfilesByPeriod(period: string): Promise<any[]> {
+    private async getCompletedProfilesByPeriod(period: string, editionId?: number): Promise<any[]> {
         const groupBy = this.getGroupByExpression(period, 'b.profile_completed_at');
-        return this.beneficiaryRepository
+        const qb = this.beneficiaryRepository
             .createQueryBuilder('b')
             .select(`${groupBy} as date`)
             .addSelect('COUNT(*)', 'count')
             .where('b.profile_completion_percentage = :complete', { complete: 100 })
             .groupBy(groupBy)
-            .orderBy('date', 'ASC')
-            .getRawMany();
+            .orderBy('date', 'ASC');
+        if (editionId) qb.andWhere('b.copa_edition_id = :editionId', { editionId });
+        return qb.getRawMany();
     }
 
-    private async getSubmittedBeneficiariesByPeriod(period: string): Promise<any[]> {
+    private async getSubmittedBeneficiariesByPeriod(period: string, editionId?: number): Promise<any[]> {
         const groupBy = this.getGroupByExpression(period, 'b.updated_at');
-        return this.beneficiaryRepository
+        const qb = this.beneficiaryRepository
             .createQueryBuilder('b')
             .select(`${groupBy} as date`)
             .addSelect('COUNT(*)', 'count')
             .where('b.is_profile_complete = :complete', { complete: true })
             .groupBy(groupBy)
-            .orderBy('date', 'ASC')
-            .getRawMany();
+            .orderBy('date', 'ASC');
+        if (editionId) qb.andWhere('b.copa_edition_id = :editionId', { editionId });
+        return qb.getRawMany();
     }
 
     private getGroupByExpression(period: string, column: string): string {
@@ -771,7 +806,7 @@ export class DashboardService {
     /**
      * Récupère toutes les données du dashboard en une seule requête
      */
-    async getFullDashboardData() {
+    async getFullDashboardData(editionId?: number) {
         const [
             statsCards,
             candidatesBySector,
@@ -781,13 +816,13 @@ export class DashboardService {
             statusPipeline,
             recentApplications,
         ] = await Promise.all([
-            this.getStatsCards(),
-            this.getCandidatesBySector(),
-            this.getRegionalInscriptions(),
-            this.getGenderCategoryAnalysis(),
-            this.getRegistrationTrend(),
-            this.getStatusPipeline(),
-            this.getRecentApplications(),
+            this.getStatsCards(editionId),
+            this.getCandidatesBySector(editionId),
+            this.getRegionalInscriptions(editionId),
+            this.getGenderCategoryAnalysis(editionId),
+            this.getRegistrationTrend(12, editionId),
+            this.getStatusPipeline(editionId),
+            this.getRecentApplications(21, editionId),
         ]);
 
         return {

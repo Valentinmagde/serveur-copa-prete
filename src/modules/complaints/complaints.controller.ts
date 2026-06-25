@@ -6,6 +6,7 @@ import {
   Body,
   Param,
   ParseIntPipe,
+  Query,
   UseGuards,
   UseInterceptors,
   UploadedFiles,
@@ -52,8 +53,8 @@ export class ComplaintsController {
   @Get()
   @ApiBearerAuth()
   @Roles('SUPER_ADMIN', 'ADMIN', 'COPA_MANAGER')
-  findAll() {
-    return this.complaintsService.findAll();
+  findAll(@Query('editionId') editionId?: string) {
+    return this.complaintsService.findAll(editionId ? +editionId : undefined);
   }
 
   @Get(':id')

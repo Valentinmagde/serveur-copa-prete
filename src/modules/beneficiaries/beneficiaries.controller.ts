@@ -50,8 +50,14 @@ export class BeneficiariesController {
 
   @Get('user/:userId')
   // @Roles('SUPER_ADMIN', 'ADMIN', 'COPA_MANAGER')
-  async findByUserId(@Param('userId') userId: string) {
-    return this.beneficiariesService.findByUserId(+userId);
+  async findByUserId(
+    @Param('userId') userId: string,
+    @Query('copaEditionId') copaEditionId?: string,
+  ) {
+    return this.beneficiariesService.findByUserId(
+      +userId,
+      copaEditionId ? +copaEditionId : undefined,
+    );
   }
 
   @Post()

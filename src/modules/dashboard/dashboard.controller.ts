@@ -17,70 +17,80 @@ export class DashboardController {
     @Get('stats')
     // @Roles('SUPER_ADMIN', 'ADMIN', 'COPA_MANAGER')
     @ApiOperation({ summary: 'Récupère les statistiques des cartes' })
-    async getStatsCards() {
-        return this.dashboardService.getStatsCards();
+    @ApiQuery({ name: 'editionId', required: false, type: Number, description: 'Filtrer par édition COPA' })
+    async getStatsCards(@Query('editionId') editionId?: string) {
+        return this.dashboardService.getStatsCards(editionId ? +editionId : undefined);
     }
 
     @Get('sectors')
     @Roles('SUPER_ADMIN', 'ADMIN', 'COPA_MANAGER')
     @ApiOperation({ summary: 'Récupère les candidatures par secteur' })
-    async getCandidatesBySector() {
-        return this.dashboardService.getCandidatesBySector();
+    @ApiQuery({ name: 'editionId', required: false, type: Number, description: 'Filtrer par édition COPA' })
+    async getCandidatesBySector(@Query('editionId') editionId?: string) {
+        return this.dashboardService.getCandidatesBySector(editionId ? +editionId : undefined);
     }
 
     @Get('regions')
     @Roles('SUPER_ADMIN', 'ADMIN', 'COPA_MANAGER')
     @ApiOperation({ summary: 'Récupère les inscriptions par région' })
-    async getRegionalInscriptions() {
-        return this.dashboardService.getRegionalInscriptions();
+    @ApiQuery({ name: 'editionId', required: false, type: Number, description: 'Filtrer par édition COPA' })
+    async getRegionalInscriptions(@Query('editionId') editionId?: string) {
+        return this.dashboardService.getRegionalInscriptions(editionId ? +editionId : undefined);
     }
 
     @Get('gender-category')
     @Roles('SUPER_ADMIN', 'ADMIN', 'COPA_MANAGER')
     @ApiOperation({ summary: 'Récupère l\'analyse par genre et catégorie' })
-    async getGenderCategoryAnalysis() {
-        return this.dashboardService.getGenderCategoryAnalysis();
+    @ApiQuery({ name: 'editionId', required: false, type: Number, description: 'Filtrer par édition COPA' })
+    async getGenderCategoryAnalysis(@Query('editionId') editionId?: string) {
+        return this.dashboardService.getGenderCategoryAnalysis(editionId ? +editionId : undefined);
     }
 
     @Get('trend')
     @Roles('SUPER_ADMIN', 'ADMIN', 'COPA_MANAGER')
     @ApiOperation({ summary: 'Récupère l\'évolution des inscriptions' })
     @ApiQuery({ name: 'months', required: false, type: Number, description: 'Nombre de mois à afficher' })
-    async getRegistrationTrend(@Query('months') months?: number) {
-        return this.dashboardService.getRegistrationTrend(months || 12);
+    @ApiQuery({ name: 'editionId', required: false, type: Number, description: 'Filtrer par édition COPA' })
+    async getRegistrationTrend(@Query('months') months?: number, @Query('editionId') editionId?: string) {
+        return this.dashboardService.getRegistrationTrend(months || 12, editionId ? +editionId : undefined);
     }
 
     @Get('pipeline')
     @Roles('SUPER_ADMIN', 'ADMIN', 'COPA_MANAGER')
     @ApiOperation({ summary: 'Récupère le pipeline par statut' })
-    async getStatusPipeline() {
-        return this.dashboardService.getStatusPipeline();
+    @ApiQuery({ name: 'editionId', required: false, type: Number, description: 'Filtrer par édition COPA' })
+    async getStatusPipeline(@Query('editionId') editionId?: string) {
+        return this.dashboardService.getStatusPipeline(editionId ? +editionId : undefined);
     }
 
     @Get('recent-applications')
     @Roles('SUPER_ADMIN', 'ADMIN', 'COPA_MANAGER')
     @ApiOperation({ summary: 'Récupère les dernières candidatures' })
     @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Nombre de résultats' })
-    async getRecentApplications(@Query('limit') limit?: number) {
-        return this.dashboardService.getRecentApplications(limit || 21);
+    @ApiQuery({ name: 'editionId', required: false, type: Number, description: 'Filtrer par édition COPA' })
+    async getRecentApplications(@Query('limit') limit?: number, @Query('editionId') editionId?: string) {
+        return this.dashboardService.getRecentApplications(limit || 21, editionId ? +editionId : undefined);
     }
 
     @Get('full')
     @Roles('SUPER_ADMIN', 'ADMIN', 'COPA_MANAGER')
     @ApiOperation({ summary: 'Récupère toutes les données du dashboard' })
-    async getFullDashboardData() {
-        return this.dashboardService.getFullDashboardData();
+    @ApiQuery({ name: 'editionId', required: false, type: Number, description: 'Filtrer par édition COPA' })
+    async getFullDashboardData(@Query('editionId') editionId?: string) {
+        return this.dashboardService.getFullDashboardData(editionId ? +editionId : undefined);
     }
 
     @Get('company-status')
     @ApiOperation({ summary: 'Analyse par statut d\'entreprise (Formel/Informel)' })
-    async getCompanyStatusAnalysis() {
-        return this.dashboardService.getCompanyStatusAnalysis();
+    @ApiQuery({ name: 'editionId', required: false, type: Number, description: 'Filtrer par édition COPA' })
+    async getCompanyStatusAnalysis(@Query('editionId') editionId?: string) {
+        return this.dashboardService.getCompanyStatusAnalysis(editionId ? +editionId : undefined);
     }
 
     @Get('trend/:period')
     @ApiOperation({ summary: 'Évolution des inscriptions par période (jour/semaine/mois)' })
-    async getRegistrationTrendByPeriod(@Param('period') period: string) {
-        return this.dashboardService.getRegistrationTrendByPeriod(period);
+    @ApiQuery({ name: 'editionId', required: false, type: Number, description: 'Filtrer par édition COPA' })
+    async getRegistrationTrendByPeriod(@Param('period') period: string, @Query('editionId') editionId?: string) {
+        return this.dashboardService.getRegistrationTrendByPeriod(period, editionId ? +editionId : undefined);
     }
 }

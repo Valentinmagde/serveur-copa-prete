@@ -1540,13 +1540,19 @@ private replaceVariables(text: string | undefined | null, beneficiary: any, lang
   async getPreselectRejectHistory(
     filter: NotificationFilterDto,
   ): Promise<PaginatedResult<Notification>> {
-    const { page = 1, limit = 20, search, fromDate, toDate, type, isSent, channel } = filter;
+    const { page = 1, limit = 20, search, fromDate, toDate, type, isSent, channel, editionId } = filter;
     const { skip, take } = PaginationUtil.getSkipTake(page, limit);
 
     const queryBuilder = this.notificationRepository
       .createQueryBuilder('notification')
       .leftJoinAndSelect('notification.recipient', 'recipient')
       .where('1=1');
+
+    if (editionId) {
+      queryBuilder
+        .innerJoin('recipient.beneficiary', 'beneficiary')
+        .andWhere('beneficiary.copaEditionId = :editionId', { editionId });
+    }
 
     if (channel) {
       queryBuilder.andWhere('notification.channel = :channel', { channel });
@@ -1705,6 +1711,7 @@ private replaceVariables(text: string | undefined | null, beneficiary: any, lang
       fromDate,
       toDate,
       search,
+      editionId,
     } = filter;
     const { skip, take } = PaginationUtil.getSkipTake(page, limit);
 
@@ -1718,6 +1725,15 @@ private replaceVariables(text: string | undefined | null, beneficiary: any, lang
 
     if (fromDate && toDate) {
       where.createdAt = Between(new Date(fromDate), new Date(toDate));
+    }
+
+    if (editionId) {
+      const beneficiaries = await this.beneficiaryRepository.find({
+        where: { copaEditionId: editionId },
+        select: ['userId'],
+      });
+      const userIds = beneficiaries.map((b) => b.userId).filter((id) => id != null);
+      where.recipientUserId = userIds.length ? In(userIds) : -1;
     }
 
     if (search) {

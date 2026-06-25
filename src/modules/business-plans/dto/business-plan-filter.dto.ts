@@ -28,11 +28,13 @@ export class BusinessPlanFilterDto {
 
   @ApiProperty({ required: false })
   @IsOptional()
+  @Type(() => Number)
   @IsInt()
   statusId?: number;
 
   @ApiProperty({ required: false })
   @IsOptional()
+  @Type(() => Number)
   @IsInt()
   copaEditionId?: number;
 

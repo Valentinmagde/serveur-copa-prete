@@ -65,4 +65,10 @@ export class NotificationFilterDto {
   @IsOptional()
   @IsString()
   search?: string;
+
+  @ApiProperty({ required: false, description: 'Filtrer par édition COPA du destinataire' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  editionId?: number;
 }

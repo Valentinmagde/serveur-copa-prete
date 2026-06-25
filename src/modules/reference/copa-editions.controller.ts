@@ -126,6 +126,13 @@ export class CopaEditionsController {
         return this.editionsService.duplicate(+id, year);
     }
 
+    @Post(':id/complete-phases')
+    @Roles('SUPER_ADMIN', 'ADMIN')
+    @ApiOperation({ summary: 'Compléter les phases standard manquantes d\'une édition' })
+    async completeMissingPhases(@Param('id') id: string) {
+        return this.editionsService.completeMissingPhases(+id);
+    }
+
     @Put(':id')
     @Roles('SUPER_ADMIN', 'ADMIN')
     @ApiOperation({ summary: 'Mettre à jour une édition' })

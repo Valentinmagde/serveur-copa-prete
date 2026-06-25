@@ -23,8 +23,9 @@ export class SubventionsService {
     public readonly createdJobRepository: Repository<CreatedJob>,
   ) {}
 
-  async findAll(): Promise<Subvention[]> {
+  async findAll(editionId?: number): Promise<Subvention[]> {
     return this.subventionRepository.find({
+      where: editionId ? { copaEditionId: editionId } : {},
       relations: ['beneficiary', 'beneficiary.user', 'status', 'tranches', 'businessPlan'],
       order: { createdAt: 'DESC' },
     });
@@ -125,18 +126,28 @@ export class SubventionsService {
     return this.trancheRepository.save(tranche);
   }
 
-  async getPortfolioStats(): Promise<any> {
-    const total = await this.subventionRepository.count();
-    const totalAmount = await this.subventionRepository
-      .createQueryBuilder('s')
-      .select('SUM(s.awardedAmount)', 'total')
-      .getRawOne();
+  async getPortfolioStats(editionId?: number): Promise<any> {
+    const total = await this.subventionRepository.count({
+      where: editionId ? { copaEditionId: editionId } : {},
+    });
 
-    const releasedAmount = await this.trancheRepository
+    const totalAmountQb = this.subventionRepository
+      .createQueryBuilder('s')
+      .select('SUM(s.awardedAmount)', 'total');
+    if (editionId) {
+      totalAmountQb.where('s.copaEditionId = :editionId', { editionId });
+    }
+    const totalAmount = await totalAmountQb.getRawOne();
+
+    const releasedAmountQb = this.trancheRepository
       .createQueryBuilder('t')
+      .innerJoin('t.subvention', 'sub')
       .select('SUM(t.amount)', 'total')
-      .where('t.status = :status', { status: 'RELEASED' })
-      .getRawOne();
+      .where('t.status = :status', { status: 'RELEASED' });
+    if (editionId) {
+      releasedAmountQb.andWhere('sub.copaEditionId = :editionId', { editionId });
+    }
+    const releasedAmount = await releasedAmountQb.getRawOne();
 
     return {
       totalSubventions: total,

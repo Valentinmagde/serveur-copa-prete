@@ -153,6 +153,17 @@ export class ReferenceService {
   async togglePhase(phaseId: number): Promise<CopaPhase> {
     const phase = await this.copaPhaseRepository.findOne({ where: { id: phaseId } });
     if (!phase) throw new Error(`Phase ${phaseId} not found`);
+
+    // Plusieurs éditions peuvent être actives en même temps, mais une même
+    // phase (ex: REGISTRATION) ne doit être active que sur une seule édition
+    // à la fois : on désactive les autres avant d'activer celle-ci.
+    if (!phase.isActive) {
+      await this.copaPhaseRepository.update(
+        { phaseCode: phase.phaseCode, isActive: true },
+        { isActive: false },
+      );
+    }
+
     phase.isActive = !phase.isActive;
     return this.copaPhaseRepository.save(phase);
   }

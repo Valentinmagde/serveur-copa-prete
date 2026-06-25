@@ -45,6 +45,12 @@ export class BeneficiaryFilterDto {
   @IsInt()
   companyId?: number;
 
+  @ApiProperty({ required: false, description: 'Filtrer par édition COPA' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  copaEditionId?: number;
+
   @ApiProperty({ required: false })
   @IsOptional()
   @Type(() => Number)

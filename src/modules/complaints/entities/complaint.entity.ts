@@ -10,6 +10,7 @@ import {
 import { ComplaintType } from './complaint-type.entity';
 import { Status } from '../../reference/entities/status.entity';
 import { User } from '../../users/entities/user.entity';
+import { CopaEdition } from '../../reference/entities/copa-edition.entity';
 
 @Entity('complaints')
 export class Complaint {
@@ -53,6 +54,13 @@ export class Complaint {
 
   @Column({ name: 'is_confidential', default: false })
   isConfidential: boolean;
+
+  @ManyToOne(() => CopaEdition)
+  @JoinColumn({ name: 'copa_edition_id' })
+  copaEdition: CopaEdition;
+
+  @Column({ name: 'copa_edition_id', nullable: true })
+  copaEditionId: number;
 
   @Column({
     name: 'submitted_at',

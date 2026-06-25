@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Post, Patch, Body, Param,
+  Controller, Get, Post, Patch, Body, Param, Query,
   ParseIntPipe, UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
@@ -42,15 +42,15 @@ export class SubventionsController {
   @Get()
   @Roles('SUPER_ADMIN', 'ADMIN', 'COPA_MANAGER')
   @ApiOperation({ summary: 'Liste de toutes les subventions' })
-  findAll() {
-    return this.subventionsService.findAll();
+  findAll(@Query('editionId') editionId?: string) {
+    return this.subventionsService.findAll(editionId ? +editionId : undefined);
   }
 
   @Get('stats')
   @Roles('SUPER_ADMIN', 'ADMIN', 'COPA_MANAGER')
   @ApiOperation({ summary: 'Statistiques du portefeuille' })
-  getPortfolioStats() {
-    return this.subventionsService.getPortfolioStats();
+  getPortfolioStats(@Query('editionId') editionId?: string) {
+    return this.subventionsService.getPortfolioStats(editionId ? +editionId : undefined);
   }
 
   @Get(':id')

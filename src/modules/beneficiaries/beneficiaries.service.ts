@@ -7,7 +7,7 @@ import {
   InternalServerErrorException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { Beneficiary } from './entities/beneficiary.entity';
 import {
@@ -38,6 +38,7 @@ import {
 } from '../notifications/dto/create-notification.dto';
 import { Document } from '../documents/entities/document.entity';
 import { UpdateCommentDto } from './dto/update-comment.dto';
+import { CopaPhase, PhaseCode } from '../reference/entities/copa-phase.entity';
 
 @Injectable()
 export class BeneficiariesService {
@@ -55,6 +56,8 @@ export class BeneficiariesService {
     private readonly notificationsService: NotificationsService,
     @InjectRepository(Document)
     private readonly documentRepository: Repository<Document>,
+    @InjectRepository(CopaPhase)
+    private readonly copaPhaseRepository: Repository<CopaPhase>,
   ) { }
 
   async create(
@@ -98,6 +101,7 @@ export class BeneficiariesService {
       statusCode,
       statusId,
       companyId,
+      copaEditionId,
       provinceId,
       category,
       companyType,
@@ -188,6 +192,13 @@ export class BeneficiariesService {
     if (companyId) {
       queryBuilder.andWhere('beneficiary.companyId = :companyId', {
         companyId,
+      });
+    }
+
+    // ── Édition COPA ──────────────────────────────────────────────────────────
+    if (copaEditionId) {
+      queryBuilder.andWhere('beneficiary.copaEditionId = :copaEditionId', {
+        copaEditionId,
       });
     }
 
@@ -720,9 +731,48 @@ export class BeneficiariesService {
     return grouped;
   }
 
-  async findByUserId(userId: number): Promise<any> {
-    const beneficiary = await this.beneficiaryRepository.findOne({
+  /**
+   * Résout le dossier "courant" d'un utilisateur ayant plusieurs éditions.
+   * Préfère l'édition dont une phase d'inscription/soumission est active ;
+   * sinon retombe sur le dossier le plus récent.
+   */
+  private async resolveCurrentEditionIdForUser(
+    userId: number,
+  ): Promise<number | undefined> {
+    const beneficiaries = await this.beneficiaryRepository.find({
       where: { userId },
+      order: { createdAt: 'DESC' },
+    });
+    if (beneficiaries.length <= 1) return beneficiaries[0]?.copaEditionId;
+
+    const editionIds = beneficiaries
+      .map((b) => b.copaEditionId)
+      .filter((id): id is number => id != null);
+
+    const activePhase = await this.copaPhaseRepository.findOne({
+      where: {
+        copaEditionId: In(editionIds),
+        isActive: true,
+        phaseCode: In([
+          PhaseCode.REGISTRATION,
+          PhaseCode.CANDIDATURE_SUBMISSION,
+          PhaseCode.BUSINESS_PLAN_SUBMISSION,
+        ]),
+      },
+      order: { startDate: 'DESC' },
+    });
+
+    return activePhase ? activePhase.copaEditionId : beneficiaries[0].copaEditionId;
+  }
+
+  async findByUserId(userId: number, copaEditionId?: number): Promise<any> {
+    const resolvedEditionId =
+      copaEditionId ?? (await this.resolveCurrentEditionIdForUser(userId));
+
+    const beneficiary = await this.beneficiaryRepository.findOne({
+      where: resolvedEditionId
+        ? { userId, copaEditionId: resolvedEditionId }
+        : { userId },
       relations: [
         'user',
         'user.consents',

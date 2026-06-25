@@ -57,8 +57,11 @@ export class BusinessPlansService {
     await queryRunner.startTransaction();
 
     try {
-      // Check if beneficiary exists and belongs to user
-      const beneficiary = await this.beneficiariesService.findByUserId(userId);
+      // Check if beneficiary exists and belongs to user, for this edition specifically
+      const beneficiary = await this.beneficiariesService.findByUserId(
+        userId,
+        createDto.copaEditionId,
+      );
 
       // Check if COPA edition is active and accepting submissions
       const edition = await this.copaEditionsService.findById(
@@ -227,8 +230,7 @@ export class BusinessPlansService {
     });
     if (existing) return this.findById(existing.id);
 
-    const activeEditions = await this.copaEditionsService.findActive();
-    if (!activeEditions.length) {
+    if (!beneficiary.copaEditionId) {
       throw new BadRequestException(
         "Aucune édition COPA active. L'upload n'est pas disponible pour le moment.",
       );
@@ -240,7 +242,7 @@ export class BusinessPlansService {
 
     const plan = this.businessPlanRepository.create({
       referenceNumber: await this.generateReferenceNumber(beneficiary),
-      copaEditionId: activeEditions[0].id,
+      copaEditionId: beneficiary.copaEditionId,
       beneficiaryId: beneficiary.id,
       projectTitle: beneficiary.projectTitle || "Plan d'affaires",
       projectDescription: beneficiary.projectObjective || null,
@@ -307,7 +309,10 @@ export class BusinessPlansService {
     }
 
     // Verify ownership
-    const beneficiary = await this.beneficiariesService.findByUserId(userId);
+    const beneficiary = await this.beneficiariesService.findByUserId(
+      userId,
+      businessPlan.copaEditionId,
+    );
     if (businessPlan.beneficiaryId !== beneficiary.id) {
       throw new ForbiddenException('You can only edit your own business plans');
     }
@@ -327,7 +332,10 @@ export class BusinessPlansService {
     const businessPlan = await this.findById(id, ['sections']);
 
     // Verify ownership
-    const beneficiary = await this.beneficiariesService.findByUserId(userId);
+    const beneficiary = await this.beneficiariesService.findByUserId(
+      userId,
+      businessPlan.copaEditionId,
+    );
     // if (businessPlan.beneficiaryId !== beneficiary.id) {
     //   throw new ForbiddenException(
     //     'You can only submit your own business plans',

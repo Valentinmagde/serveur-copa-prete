@@ -11,6 +11,6 @@ import { BeneficiariesModule } from '../beneficiaries/beneficiaries.module';
   imports: [TypeOrmModule.forFeature([Document, DocumentType]), BeneficiariesModule],
   controllers: [DocumentsController],
   providers: [DocumentsService, S3Service],
-  exports: [DocumentsService],
+  exports: [DocumentsService, S3Service],
 })
 export class DocumentsModule {}
